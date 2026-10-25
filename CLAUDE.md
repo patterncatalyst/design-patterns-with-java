@@ -29,9 +29,14 @@ content executors.
 - This book covers exactly **Java 25**, the current LTS. Never write
   "Java 26" or treat a pre-release feature as settled; there is one modern
   standard this book teaches, not a moving target.
-- Codetabs in chapter prose always use exactly:
-  `{% raw %}{% include codetabs.html langs="Classic Java|Java 25" %}{% endraw %}`
-  — two labels, in that order, never more. The axis is the book's
+- Codetabs in chapter prose always use exactly this bare include (two
+  labels, in that order, never more), on its own line, followed by one
+  fenced ```java block per label:
+  `{% include codetabs.html langs="Classic Java|Java 25" %}`
+  Do NOT wrap the include in `{% raw %}`/`{% endraw %}` — that stops Liquid
+  from running it, so the tab UI never renders and the literal tag leaks
+  into the page (the `|` is then parsed as a Markdown table). The axis is
+  the book's
   through-line: where Java 25 retires a classic idiom (an anonymous class,
   a switch statement, a manual builder), the Classic Java tab shows the
   idiom it replaces.

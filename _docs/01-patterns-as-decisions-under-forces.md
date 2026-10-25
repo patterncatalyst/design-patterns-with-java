@@ -1,0 +1,80 @@
+---
+title: "Patterns as decisions under forces"
+order: 1
+layout: tutorial
+sectionid: docs
+part: "recognizing-design"
+description: "Why a design pattern is a named response to a recurring set of trade-offs rather than a recipe to apply from memory, and the five-step arc this book trains for every pattern that follows."
+duration: "20 min"
+---
+
+## Learning objectives
+
+By the end of this chapter you can:
+
+- Explain why a pattern is a name for a recurring trade-off, not a template to copy into new code.
+- Name the forces behind a design decision: competing requirements a single piece of Java cannot satisfy at once.
+- Walk the five-step arc this book trains for every pattern: recognize the forces, name a candidate pattern and a candidate non-pattern, choose the idiomatic Java expression, test the behavior, and know when not to use it.
+- Apply the same scrutiny to a pattern name suggested by an AI pairing partner that you would apply to one from a teammate.
+
+## Why this matters
+
+A pattern applied for the wrong reason costs more than the problem it was supposed to solve. Picture an engineer who has just read the Gang of Four book cover to cover, feels the Strategy pattern fresh in mind, and reaches for it the next time a method has an `if` statement. The resulting code has an interface, a handful of one-line implementations, and a factory to pick among them, standing in for a branch that would have read more clearly as three lines inside the original method. Nothing in that code is wrong syntactically; it compiles, it runs, it even demonstrates real knowledge of the pattern's shape. It is also worse than what it replaced, because the engineer reached for a name before asking what problem the name was supposed to solve.
+
+This book trains the opposite habit. A pattern is not a recipe to apply by reflex when its shape comes to mind; it is a name attached to a recurring set of forces, trade-offs that pull against each other and that no single piece of code can resolve without giving up something on one side. Recognizing those forces first, and only then reaching for a name, separates a design decision from decoration, and makes code review substantive instead of a trivia contest over which pattern a block of code resembles. This chapter builds the vocabulary and the five-step habit every later pattern chapter runs through, against a shipping system with carriers, rates, and packages, not a placeholder class hierarchy.
+
+{% include excalidraw.html name="01-forces-and-decisions" caption="Figure 1.1: The arc this book trains for every pattern: recognize the forces, name a candidate pattern and a candidate non-pattern, choose the idiomatic Java expression, test the behavior, and know when not to use it." %}
+
+## A pattern is a name, not a recipe
+
+The Gang of Four's original definition is easy to misquote from memory. Their book does not define a pattern as a reusable block of code; it defines one as a description of a problem that recurs, together with the core of a solution to that problem, stated generally enough to apply the same way twice without being the same code twice. The emphasis belongs on *recurs*. A pattern earns its name because the same underlying tension shows up again, in different code, in different domains, and the name lets two engineers who have both seen it before skip past re-deriving the trade-off from scratch.
+
+That is a sharply different thing from a recipe. A recipe tells you what to type. A pattern tells you what problem you are looking at, and leaves the code entirely open. Two engineers who both correctly identify a Strategy situation in a shipping system can write different Java for it: one reaches for an interface with one implementation per carrier, because new carriers get added by a separate integrations team; another reaches for a `Map<CarrierId, ToDoubleFunction<Shipment>>` populated with lambdas, because the strategies are a handful of one-line rate calculations with no collaborators of their own. Both are Strategy. Neither is wrong. A recipe cannot survive that divergence; a named response to a force can, because the name was never about the code shape to begin with.
+
+This matters for how you read every pattern chapter from here forward. Each one shows you the forces first, then more than one idiomatic way modern Java can resolve them, side by side in the codetabs convention from the prerequisites chapter. Remember one code shape per pattern name and you will misapply it the first time the forces underneath differ from the example that taught it to you. Remember the forces instead, and you will recognize the same pattern again in code that looks nothing like the example you first saw.
+
+## Forces: the vocabulary of trade-offs
+
+A force, in this book's vocabulary, is a requirement that competes with another requirement inside the same piece of code. Neither one is wrong to want. The tension between them is the actual design problem, and a pattern is what a team calls the shape of code that resolves one particular, recurring version of that tension.
+
+Some forces repeat across nearly every pattern in this book, in different proportions each time. Flexibility pulls against simplicity: a rate calculator that can swap its carrier logic at runtime is more adaptable, and has more moving parts, than one that cannot. Testability pulls against directness: a shipment-tracking service that depends on a `CarrierClient` interface is trivial to replace with a Mockito mock in a test, while the same dependency instantiated directly inside the method is one line shorter and one test harder to write in isolation. Extensibility pulls against YAGNI, the discipline of not building a seam for a requirement nobody has asked for yet: an abstraction anticipating three future carriers that never sign a contract is a cost paid today for a benefit that may never be collected. A force specific to a language with Java's history is idiom currency against stability: Java 25 retires a classic idiom roughly every few releases, an anonymous inner class giving way to a lambda, a `switch` statement giving way to an exhaustive `switch` expression, and code written against an older idiom keeps compiling and keeps working, which is why it rarely gets revisited on its own.
+
+None of these forces resolves to a universal winner. A shipment-routing service that must swap its carrier-selection rule at runtime, based on a feature flag rolled out gradually across regions, has a flexibility requirement the code must actually meet. A warehouse's package-weight validation, fixed by the physical limits of a single facility's conveyor system, usually does not, and an abstraction built for a hypothetical "swap the weight limit rule" only pays for itself in the facility that needs it. Reading which forces are present in the code in front of you, not which forces a pattern's name usually implies, is the first and hardest skill this book trains.
+
+## The arc: recognize, name, express, test, and know when not to
+
+Every pattern chapter in this book works through the same five movements in the same order.
+
+**Recognize the forces.** Before any pattern name enters the conversation, ask what varies in this code, what stays fixed, and what is expensive to get wrong. A checkout flow that charges a different shipping rate depending on carrier has something that varies, the rate calculation, and something that stays fixed, the rest of the flow around it. A warehouse inventory service that must never let two pickers reserve the same unit of stock has something expensive to get wrong, a correctness property a design has to protect by construction, not by convention. This step produces a plain description of the tension in the code, with no pattern name attached yet, because naming too early anchors your thinking on one answer before you finish describing the question.
+
+**Name a candidate pattern, and a candidate non-pattern.** Only once the forces are on the table does a name enter the picture, alongside a plain, boring alternative named just as explicitly. For the checkout flow's rate calculation, the candidate pattern might be Strategy: one interface, one implementation per carrier, selected at order time. The candidate non-pattern might be a single method with a `switch` expression over carrier, no interface at all. Naming both, every time, keeps pattern selection from becoming reflexive. If the switch is three carriers wide, changes twice a year, and is read by one team that already understands the whole thing at a glance, the non-pattern might be the better decision even though the pattern's name fits. If the switch is already eleven cases wide, changes every sprint as new regional carriers launch, and different teams own different carriers' rate logic, the forces favor the pattern: each carrier's rate calculation lives in its own class, owned by its own team, added without touching a `switch` expression anyone else depends on. The forces decide which candidate wins; naming both makes that decision visible instead of assumed.
+
+**Choose the idiomatic Java expression.** A pattern name constrains the shape of a solution; it does not dictate the code. Modern Java gives you real choices the Gang of Four's 1994 vocabulary, written against a language with no lambdas and no enums yet, did not have. The same Strategy decision can resolve as a classic interface with one implementation class per carrier, as an enum whose constants each override an abstract method, or as a functional interface holding a lambda stored in a lookup map, each trading flexibility, discoverability, and ceremony differently. Choosing among these expressions is part of the design decision, not an afterthought once "the pattern" has been picked.
+
+**Test it.** A pattern claims a behavior: a Strategy claims that swapping the implementation changes the outcome without changing the caller; an inventory reservation claims that no two pickers ever receive the same unit of stock. A test that only confirms the build exits zero proves none of that. Every example in this book carries a JUnit 5 suite, using Mockito for collaborator verification and AssertJ for fluent assertions, exercising the claimed behavior directly. If a claim cannot be written as an assertion that fails when the behavior is wrong, the pattern has not been verified, only typed.
+
+**Know when not to use it.** Every pattern earns a point past which applying it further stops helping. A Strategy with exactly one carrier implementation and no credible second on the roadmap is an abstraction paying rent for a future that has not arrived. A factory wrapping a constructor that never does anything more than its own constructor adds a layer with nothing underneath it. Every pattern chapter closes with a short section on exactly this, the other half of the decision that chose the pattern in the first place. Knowing when a pattern stops paying for itself is the same skill as knowing when to reach for it, checked against whether the forces are still present.
+
+## Why this matters for leveling up
+
+A pattern name shows up often enough in interviews that it is tempting to treat the catalogue as trivia: memorize what Observer looks like, recite the definition on request. That answers an interview question and does nothing for the code you write the next day, because the question an interview asks, "what is this pattern," is not the question real code asks, which is "what forces are actually present here, and does naming one of these patterns help."
+
+An engineer who has internalized the five-step arc brings something different to a code review than one who has memorized the catalogue: the ability to ask "what is this abstraction actually buying us" about an existing Strategy, or "what would make this switch expression worth replacing" about an existing non-pattern, and to have a real answer either way. That question is what a senior engineer asks by instinct and a newer engineer has to learn as a habit, trained by insisting on the candidate non-pattern and the "when not to use it" section every single time. The catalogue is just the vocabulary for talking about that judgment once you can make it.
+
+## A shared vocabulary, for a team and for an AI
+
+Naming a pattern correctly does more than help you reason about one piece of code alone. It gives a team a word that compresses a paragraph of trade-off discussion into a sentence a reviewer can act on: "this needs to be a Strategy, not a switch expression, because regional carriers are now owned by separate teams" says in one line what the previous section took several paragraphs to walk through. That compression only works if everyone on the team means the same thing by the word, a harder property to maintain than it sounds, because a pattern's name is easy to use loosely once it stops being attached to the forces that justified it.
+
+> **AI sidebar.** An AI pairing partner has read a great deal of Java that reaches for a familiar pattern shape because the shape is familiar, not because the forces at hand call for it. A model asked to add a new carrier to a two-case `switch` expression is just as likely to hand back a full Strategy hierarchy, an interface, a factory, and a registration map, as it is to hand back the one extra `case` the forces actually justify. Treat a pattern name in a suggestion the way this chapter treats one anywhere else: ask what varies, what stays fixed, and whether a second implementation is real or hypothetical, before accepting the shape proposed. The scrutiny runs the other way too. A model is also quick to suggest collapsing a Strategy back into a switch expression once it sees only two cases, without checking whether those cases are already owned by two different teams for a reason the code itself does not show.
+
+That same risk extends past the sidebar. A suggestion carrying a pattern's name deserves exactly the scrutiny this chapter just trained: what are the actual forces here, and does the suggested pattern, or a plainer non-pattern alternative, actually answer them.
+
+## How later chapters apply the arc
+
+The chapters immediately ahead ground this vocabulary in SOLID, because a force like "testability pulls against directness" is close kin to the Dependency Inversion Principle stated formally, and in the Java substrate every later pattern depends on: immutability, the JUnit 5 and Mockito testing discipline, and the records and sealed interfaces that reshape how classic patterns get expressed. From there, every pattern chapter runs this arc against one specific, named pattern and one new, real-domain example: a shipping-rate calculator here, a billing engine there, never a placeholder class standing in for a problem nobody has. Each closes with its own "when not to use it" section and one short sidebar on how an AI pairing partner reaches for that particular pattern. The catalogue changes chapter to chapter. The arc does not.
+
+## For deeper coverage
+
+- Erich Gamma, Richard Helm, Ralph Johnson, and John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480/9780321700698) (Addison-Wesley): the original definition of a pattern as a recurring problem and the core of its solution, and the catalogue this book's chapters track pattern by pattern.
+- Robert C. Martin, [*Agile Software Development: Principles, Patterns, and Practices*](https://www.pearson.com/en-gb/subject-catalog/p/agile-software-development-principles-patterns-and-practices-pearson-new-international-edition/P200000004932/9781292038360) (Prentice Hall): the SOLID principles the next part of this book builds on directly, and an early, explicit treatment of patterns chosen by the forces in front of you rather than applied from memory.
+- The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); every citation in this book is a pointer to the source, not a substitute for reading it.

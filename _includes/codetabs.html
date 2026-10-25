@@ -6,9 +6,10 @@
   tab group. Because the code blocks stay ordinary Markdown fences, Rouge
   still highlights them at build time — no plugin required.
 
-  Usage (place the marker, then one fenced block per label, IN THIS ORDER):
+  Usage (place the bare include, then one fenced block per label, IN THIS
+  ORDER). Do NOT wrap the include in raw tags — that stops Liquid running it:
 
-      {% raw %}{% include codetabs.html langs="Classic Java|Java 25" %}{% endraw %}
+      {% include codetabs.html langs="Classic Java|Java 25" %}
 
       ```java
       // Classic Java
