@@ -1,6 +1,8 @@
 ---
 title: "Template Method"
 order: 9
+layout: tutorial
+sectionid: docs
 part: "selecting-varying-behavior"
 description: "Two idiomatic Java 25 ways to keep a processing sequence fixed while its steps vary, taught against a shipment order pipeline that validates, prices, and records an order the same three steps every time, with different content per sales channel: an abstract base with a final skeleton and overridden hooks, and the same skeleton written once as a value whose steps arrive as lambdas."
 duration: "30 min"
