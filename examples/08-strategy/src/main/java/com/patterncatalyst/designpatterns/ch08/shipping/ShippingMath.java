@@ -3,7 +3,7 @@ package com.patterncatalyst.designpatterns.ch08.shipping;
 /**
  * The actual pricing math, shared by every {@link RateStrategy} expression in
  * this example. Keeping the arithmetic here, called identically by the
- * Classic Java classes, the Java 25 lambdas, and the {@link Carrier} enum
+ * named classes, the lambdas, and the {@link Carrier} enum
  * constants, is what makes it possible to assert that all three dispatch
  * mechanisms quote an identical {@link Shipment} identically: a bug fixed
  * here is fixed everywhere, rather than fixed in whichever expression
