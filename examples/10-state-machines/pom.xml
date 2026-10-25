@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chapter 10 — State and finite state machines: a shipment lifecycle.
+
+  Standalone-buildable: `cd examples/10-state-machines && mvn test` works
+  without touching the aggregator. No containers — plain Maven + JDK 25,
+  per the repo's CLAUDE.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patterncatalyst.designpatterns</groupId>
+        <artifactId>design-patterns-with-java</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dp-10-state-machines</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Design Patterns with Java — ch10 State and finite state machines</name>
+    <description>
+        A shipment lifecycle modeled as an enum-plus-transition-table finite
+        state machine, a sealed-interface state dispatched through an
+        exhaustive pattern-matching switch, and a probability-driven machine
+        whose weighted outcomes are reproducible in a test through an
+        injected, seedable RandomGenerator. All three refuse illegal
+        transitions through the same IllegalTransitionException.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

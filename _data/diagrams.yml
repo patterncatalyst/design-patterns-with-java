@@ -75,3 +75,27 @@
     One caller, one contract, and a set of interchangeable algorithms behind it,
     each expressed a different idiomatic way, swapped without touching the
     caller.
+
+- name: 09-template-method-skeleton
+  section: "Ch. 9"
+  title: A fixed skeleton with pluggable steps
+  caption: >-
+    The order-processing pipeline's fixed, final sequence runs an invariant check
+    and three varying steps in order; a channel supplies those steps by overriding
+    an abstract class or by handing the pipeline three lambdas.
+
+- name: 10-shipment-state-transitions
+  section: "Ch. 10"
+  title: A shipment's legal states and transitions
+  caption: >-
+    The legal shipment states and the transitions between them, with the
+    stochastic outlet the probabilistic machine draws from while a shipment is in
+    transit.
+
+- name: 11-command-undo-and-queue
+  section: "Ch. 11"
+  title: A request captured as a command
+  caption: >-
+    A request becomes a command that flows through a queue and an undo-redo history
+    into the warehouse ledger, so it can be ordered, replayed, and reversed rather
+    than run and forgotten.
