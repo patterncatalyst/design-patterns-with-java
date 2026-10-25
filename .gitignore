@@ -1,0 +1,42 @@
+# ── Jekyll ────────────────────────────────────────────────────────────────────
+_site/
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/
+.bundle/
+
+# ── Java / Maven build artifacts ─────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# ── Test / analysis output ─────────────────────────────────────────────────────
+*.junit.xml
+test-results/
+reports/
+*.jacoco.exec
+
+# ── Diagrams editor scratch ─────────────────────────────────────────────────────
+*.excalidraw.lock
+
+# ── OS / IDE ────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.direnv/
+.envrc
+*~
+*.swo
+*.swp
+
+# ── Vendoring / scratch ──────────────────────────────────────────────────────────
+vendor/
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+*.pdf

@@ -1,0 +1,48 @@
+# The book's TAUGHT workflow is local tools (JDK 25 + Maven on the host,
+# per _docs/00-prerequisites.md), never containers. This runner installs
+# that same local toolchain directly via actions/setup-java — no CI-only
+# container substrate is needed for a Maven build.
+#
+# NOTE (r01 scaffold): the aggregator examples/pom.xml declares exactly one
+# module, 08-strategy, which a later executor in this same release
+# iteration creates to match. Until that module lands, `mvn test` from the
+# aggregator has nothing to recurse into and would fail on a missing
+# module directory. The guard below only runs the Maven test step once
+# examples/08-strategy exists, so this workflow is green at scaffold time
+# and starts exercising real tests the moment the module is added — no
+# workflow edit required when that happens.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          cache: 'maven'
+
+      - name: Versions
+        run: |
+          java -version
+          mvn -v
+
+      - name: Maven test (examples aggregator)
+        run: |
+          if [ -d examples/08-strategy ]; then
+              mvn -q -f examples/pom.xml -B test
+          else
+              echo "::notice::examples/08-strategy not yet created — skipping Maven test until the example lands"
+          fi

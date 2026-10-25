@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Root superbuild for Design Patterns with Java.
+
+  This aggregates every example under examples/ in one pass for local
+  development and CI. Each example module is ALSO standalone-buildable on
+  its own: `cd examples/08-strategy && mvn test` works without ever
+  touching this file. That property matters for the book — a reader who
+  only cares about one pattern should not have to build the whole repo.
+
+  No containers: this project builds with the host's JDK 25 and Maven (see
+  ../scripts/check-prereqs.sh and the prerequisites chapter for the pinned
+  versions).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.patterncatalyst.designpatterns</groupId>
+    <artifactId>design-patterns-with-java</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>Design Patterns with Java — examples</name>
+    <description>
+        Aggregator for the runnable examples behind each chapter of
+        Design Patterns with Java. Every module is new, real-domain Java
+        25 code tested with JUnit 5, Mockito, and AssertJ.
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>25</maven.compiler.release>
+        <java.version>25</java.version>
+
+        <!-- Keep these in sync with the r01 build plan's verified toolchain table. -->
+        <junit-bom.version>5.13.4</junit-bom.version>
+        <mockito.version>5.24.0</mockito.version>
+        <assertj.version>3.27.7</assertj.version>
+        <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+        <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+    </properties>
+
+    <!--
+      Each example module adds its own JUnit Jupiter / Mockito / AssertJ
+      dependencies WITHOUT a <version>, inheriting the pin from here. This
+      is what lets a reader change the test-stack version in exactly one
+      place for the whole book.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <!--
+      One module per hands-on chapter's example, in chapter order. The
+      08-strategy module is created by a later executor in this release
+      iteration to match this entry — it does not exist yet at scaffold
+      time, so `mvn -N validate` (non-recursive) is the only safe command
+      to run against this aggregator until that module lands.
+    -->
+    <modules>
+        <module>08-strategy</module>
+    </modules>
+
+</project>
