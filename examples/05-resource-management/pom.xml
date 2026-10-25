@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chapter 5 — Resource management (Java's RAII). A shipping-carrier domain:
+  a CarrierConnection managed with try-with-resources, a BatchLedgerWriter
+  wrapped by the Execute-Around Method idiom, and a TrackingFeedHandle
+  pooled by a registry that deliberately outlives any single call.
+
+  Standalone-buildable: `cd examples/05-resource-management && mvn test`
+  works without touching the aggregator. Also picked up by ../pom.xml's
+  <modules>, so `mvn -f examples/pom.xml test` builds this module too. No
+  containers — plain Maven + JDK 25, per the repo's CLAUDE.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patterncatalyst.designpatterns</groupId>
+        <artifactId>design-patterns-with-java</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dp-05-resource-management</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Design Patterns with Java — ch05 Resource management</name>
+    <description>
+        Deterministic resource cleanup on a shipping-carrier domain:
+        CarrierConnection implements AutoCloseable and is released with
+        try-with-resources on both the normal and exception exit path;
+        LedgerOperations.withLedger wraps a BatchLedgerWriter with the
+        Execute-Around Method idiom, so a caller supplies only a lambda and
+        never calls open/commit/close itself; TrackingFeedRegistry pools
+        TrackingFeedHandle instances whose lifetime deliberately outlives
+        any single call, the case a single-owner guard does not fit.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

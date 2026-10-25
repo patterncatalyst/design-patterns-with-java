@@ -96,64 +96,21 @@ public record LineItem(String description, int quantity, long unitPriceCents) {
 A record is the right shape for `LineItem` because a line item is a value,
 not an entity: two line items with the same description, quantity, and
 price are interchangeable, and nothing about a line item should ever change
-after it is built. Before records, that same value type took a lot more
-code to get right.
+after it is built. A record replaces the hand-written getters, `equals`,
+`hashCode`, and `toString` a value class like this once took to write and
+keep in sync by hand.
 
-{% include codetabs.html langs="Classic Java|Java 25" %}
 ```java
-// Classic Java: a hand-written value class. Every field needs a getter, and
-// equals/hashCode/toString all have to be written and kept in sync by hand
-// with whatever fields the class ends up with.
-public final class LineItem {
-    private final String description;
-    private final int quantity;
-    private final long unitPriceCents;
-
-    public LineItem(String description, int quantity, long unitPriceCents) {
-        this.description = description;
-        this.quantity = quantity;
-        this.unitPriceCents = unitPriceCents;
-    }
-
-    public String getDescription() { return description; }
-    public int getQuantity() { return quantity; }
-    public long getUnitPriceCents() { return unitPriceCents; }
-
-    @Override
-    public boolean equals(Object other) {
-        if (this == other) return true;
-        if (!(other instanceof LineItem that)) return false;
-        return quantity == that.quantity
-                && unitPriceCents == that.unitPriceCents
-                && Objects.equals(description, that.description);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(description, quantity, unitPriceCents);
-    }
-
-    @Override
-    public String toString() {
-        return "LineItem[description=" + description + ", quantity=" + quantity
-                + ", unitPriceCents=" + unitPriceCents + "]";
-    }
-}
-```
-```java
-// Java 25: the identical value contract, declared once. The accessors,
-// equals, hashCode, and toString all follow from the state the header
-// declares; there is no second copy of the field list to keep in sync.
 public record LineItem(String description, int quantity, long unitPriceCents) {
 }
 ```
 
-Both columns give a caller the same three accessors, `description()`,
-`quantity()`, and `unitPriceCents()` on the record, `getDescription()` and
-friends on the hand-written class, the same value equality, and the same
-readable `toString()`. The record version is also the one this example
-actually ships, with validation added in the compact constructor shown
-above. None of this is about SRP, OCP, or LSP by itself; it is the
+This record gives a caller three accessors, `description()`, `quantity()`,
+and `unitPriceCents()`, value equality, and a readable `toString()`, all
+derived from the state the header declares, with no second copy of the
+field list to keep in sync. The version shown here is also the one this
+example actually ships, with validation added in the compact constructor
+shown above. None of this is about SRP, OCP, or LSP by itself; it is the
 foundation the next three sections build their reasoning on, so it earns
 its place before the principles do.
 
@@ -286,31 +243,16 @@ idiom, and sealed types are not a strictly better version of the open
 interface; they trade one property for another. Picture a finance team that
 wants every adjustment on an invoice explained on an audit line, and wants
 the compiler, not a code reviewer, to catch a kind of adjustment nobody
-wrote an explanation for yet.
+wrote an explanation for yet. A sealed `InvoiceRule` hierarchy with an
+exhaustive switch replaces an `instanceof` chain whose default branch only
+catches a missing case at runtime, whenever some invoice finally exercises
+it.
 
-{% include codetabs.html langs="Classic Java|Java 25" %}
 ```java
-// Classic Java: an instanceof chain, with a default branch that throws.
-// Adding a fourth rule kind compiles cleanly even if this method is never
-// updated; the gap only surfaces when a real invoice carrying that rule
-// reaches the default branch at runtime.
-public static String explain(InvoiceRule rule, long subtotalCents) {
-    if (rule instanceof PercentageTaxRule tax) {
-        return tax.name() + ": +" + tax.adjustmentCents(subtotalCents) + "c";
-    } else if (rule instanceof PercentageDiscountRule discount) {
-        return discount.name() + ": " + discount.adjustmentCents(subtotalCents) + "c";
-    } else if (rule instanceof FlatServiceFeeRule fee) {
-        return fee.name() + ": +" + fee.adjustmentCents(subtotalCents) + "c";
-    } else {
-        throw new IllegalStateException("Unexplained rule kind: " + rule.getClass());
-    }
-}
-```
-```java
-// Java 25: a sealed InvoiceRule permits exactly these three kinds, and the
-// switch over them is exhaustive. Adding a fourth permitted kind without
-// adding its case here is a compile error, not a runtime surprise reached
-// by whichever invoice exercises it first.
+// A sealed InvoiceRule permits exactly these three kinds, and the switch
+// over them is exhaustive. Adding a fourth permitted kind without adding
+// its case here is a compile error, not a runtime surprise reached by
+// whichever invoice exercises it first.
 public static String explain(InvoiceRule rule, long subtotalCents) {
     return switch (rule) {
         case PercentageTaxRule tax ->

@@ -1,4 +1,4 @@
-package com.patterncatalyst.designpatterns.ch08.shipping.classic;
+package com.patterncatalyst.designpatterns.ch08.shipping.named;
 
 import com.patterncatalyst.designpatterns.ch08.shipping.Money;
 import com.patterncatalyst.designpatterns.ch08.shipping.RateQuote;

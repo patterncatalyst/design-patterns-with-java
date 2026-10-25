@@ -29,17 +29,26 @@ content executors.
 - This book covers exactly **Java 25**, the current LTS. Never write
   "Java 26" or treat a pre-release feature as settled; there is one modern
   standard this book teaches, not a moving target.
-- Codetabs in chapter prose always use exactly this bare include (two
-  labels, in that order, never more), on its own line, followed by one
-  fenced ```java block per label:
-  `{% include codetabs.html langs="Classic Java|Java 25" %}`
-  Do NOT wrap the include in `{% raw %}`/`{% endraw %}` — that stops Liquid
-  from running it, so the tab UI never renders and the literal tag leaks
-  into the page (the `|` is then parsed as a Markdown table). The axis is
-  the book's
-  through-line: where Java 25 retires a classic idiom (an anonymous class,
-  a switch statement, a manual builder), the Classic Java tab shows the
-  idiom it replaces.
+- **Code is idiomatic modern Java 25 only.** Do NOT write classic- or
+  older-Java code purely for contrast, and do NOT use a "Classic Java vs
+  Java 25" codetabs axis. Each sample is a single fenced ```java block in
+  the current idiom. The ONE exception is the legacy-code / Feathers part
+  (Part 10), where comparing inherited older code with its refactored form
+  is the actual subject; there, a "before" snippet is the point.
+- Keep the **"modern Java retires older idioms"** through-line as a brief
+  prose note where it adds value (a record replaces hand-written
+  equals/hashCode and defensive copying; try-with-resources replaces
+  try/finally; a switch expression replaces a switch statement), not as a
+  second code tab.
+- The `codetabs.html` include still exists, for comparing genuinely
+  different *modern* Java 25 idioms side by side when a chapter benefits
+  (for example a functional-interface form next to an enum form), relabeled
+  to the idioms compared, never "Classic Java". Use the bare include
+  `{% include codetabs.html langs="..." %}` on its own line, one fenced
+  ```java block per label, and never wrap it in raw tags (that stops Liquid
+  running it, leaks the literal tag, and makes the `|` a Markdown table).
+  Default to a single Java 25 block; reach for a codetab only for a real
+  idiom-to-idiom comparison.
 
 ## Example code
 

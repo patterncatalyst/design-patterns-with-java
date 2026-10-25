@@ -20,9 +20,9 @@ By the end of this chapter you can:
 - Build constructor injection with no framework: a high-level policy holds a
   reference to an abstraction, and one composition root wires concrete types
   to it.
-- Compare a Classic Java `Optional` result with a Java 25 sealed interface
-  for the same decision, and say what the sealed version keeps that the
-  `Optional` throws away.
+- Build a sealed result type that keeps a rejection's reason in the value a
+  caller already has to inspect, and say what that costs against a plain
+  `Optional`.
 - Name CDI and Spring as the framework alternative to a hand-wired
   composition root, and say what each one automates.
 - Recognize when segregating an interface or inverting a dependency solves a
@@ -162,37 +162,14 @@ is an accurate description of what the class needs.
 
 `OrderNotificationPolicy` is a high-level policy: it knows an order event is
 worth notifying a customer about, and it knows nothing else. It depends on
-`MessageSender`, never on `EmailGateway` or `SmsGateway`:
-
-{% include codetabs.html langs="Classic Java|Java 25" %}
+`MessageSender`, never on `EmailGateway` or `SmsGateway`. A plain
+`Optional<DispatchResult>` would tell a caller whether the event was sent
+and nothing more, leaving a rejected event and a rejected event for a
+different reason indistinguishable; a sealed `NotificationOutcome` keeps the
+rejection reason in the value a caller already has to inspect, with no
+second call or logging side channel required to recover it.
 
 ```java
-// Classic Java: Optional says whether the event was sent, nothing more.
-// A rejected event and a rejected event for a different reason are
-// indistinguishable to the caller.
-public final class OrderNotificationPolicy {
-    private final MessageSender sender;
-
-    public OrderNotificationPolicy(MessageSender sender) {
-        this.sender = Objects.requireNonNull(sender, "sender");
-    }
-
-    public DispatchResult notifyCustomer(OrderEvent event) {
-        return sender.send(event);
-    }
-
-    public Optional<DispatchResult> tryNotifyCustomerOptional(OrderEvent event) {
-        if (event.customerContact().isBlank()) {
-            return Optional.empty();
-        }
-        return Optional.of(sender.send(event));
-    }
-}
-```
-```java
-// Java 25: a sealed NotificationOutcome keeps the rejection reason in the
-// value a caller already has to inspect, with no second call or logging
-// side channel required to recover it.
 public final class OrderNotificationPolicy {
     private final MessageSender sender;
 
@@ -213,8 +190,8 @@ public final class OrderNotificationPolicy {
 }
 ```
 
-Both columns depend on exactly `MessageSender`; only the shape of the
-rejection answer changed. `NotificationOutcome` is a small sealed interface:
+This policy depends on exactly `MessageSender`. `NotificationOutcome` is a
+small sealed interface:
 
 ```java
 public sealed interface NotificationOutcome permits NotificationOutcome.Notified, NotificationOutcome.Rejected {
@@ -324,41 +301,12 @@ you do.
 
 ## A worked audit: describing a closed set of delivery states
 
-`DeliveryAuditor` turns a `DeliveryState` into a human-readable description,
-and it is a second place this chapter's codetabs axis shows up, this time on
-dispatch rather than on a result type:
-
-{% include codetabs.html langs="Classic Java|Java 25" %}
+`DeliveryAuditor` turns a `DeliveryState` into a human-readable description
+with a switch expression over all four constants, no default branch needed:
 
 ```java
-// Classic Java: a switch statement with an explicit break after every
-// branch and a default clause nobody is reminded to update. Adding a
-// fifth DeliveryState constant compiles cleanly even if this method is
-// never touched; the gap only shows up when a dispatch in that state
-// reaches the default branch at runtime.
-static String describeStateClassic(DeliveryState state) {
-    String description;
-    switch (state) {
-        case PENDING:
-            description = "still in flight";
-            break;
-        case DELIVERED:
-            description = "confirmed delivered";
-            break;
-        case FAILED:
-            description = "confirmed failed";
-            break;
-        default:
-            description = "no record of this dispatch";
-            break;
-    }
-    return description;
-}
-```
-```java
-// Java 25: a switch expression with no default. Adding a fifth
-// DeliveryState constant without a matching case here is a compile
-// error, not a runtime surprise on whichever dispatch reaches the
+// Adding a fifth DeliveryState constant without a matching case here is a
+// compile error, not a runtime surprise on whichever dispatch reaches the
 // missing case first.
 static String describeState(DeliveryState state) {
     return switch (state) {
@@ -371,10 +319,10 @@ static String describeState(DeliveryState state) {
 ```
 
 `DeliveryAuditorTest` is a parameterized suite over every `DeliveryState`
-constant that checks both methods agree with `auditDelivery`'s own answer,
-rather than hand-writing one expected string per state and trusting that
-both switches stayed consistent with it. The same role-interface structure
-that makes `DeliveryAuditor` easy to unit test, a single mocked
+constant that checks `describeState` agrees with `auditDelivery`'s own
+answer, rather than hand-writing one expected string per state and hoping
+the two stay in sync on their own. The same role-interface structure that
+makes `DeliveryAuditor` easy to unit test, a single mocked
 `DeliveryStatusProvider`, is what makes exercising every state in the switch
 cheap enough to actually do instead of spot-checking one or two branches.
 
@@ -458,8 +406,8 @@ mvn test
 Either path runs the same 26 JUnit 5 cases, asserted with AssertJ, including
 a Mockito-based suite that substitutes a `MessageSender` test double for
 `OrderNotificationPolicy` and a parameterized suite that checks
-`DeliveryAuditor`'s two `switch` forms against each other for every
-`DeliveryState`. Observed locally on Fedora with Temurin 25:
+`DeliveryAuditor`'s switch expression against `auditDelivery`'s own answer
+for every `DeliveryState`. Observed locally on Fedora with Temurin 25:
 
 ```
 Tests run: 26, Failures: 0, Errors: 0, Skipped: 0
@@ -475,20 +423,16 @@ examples/04-dependency-inversion/demo.sh
 ```
 
 It prints an SMS dispatch, a templated email dispatch, an audit against the
-email gateway's delivery log, and finally the rejection path compared
-between the Java 25 sealed outcome and its Classic Java `Optional`
-counterpart:
+email gateway's delivery log, and finally the rejection path through the
+sealed `NotificationOutcome`:
 
 ```
 SMS dispatch (sms-ORD-1001): Your order has shipped.
 Email dispatch (email-ORD-1002): rendered and sent
 Audit for email-ORD-1002: confirmed delivered
 
-== Java 25: a sealed outcome that keeps the rejection reason ==
+== Sealed outcome that keeps the rejection reason ==
 Rejected: order event has no customerContact to notify
-
-== Classic Java comparison: Optional<DispatchResult> loses the reason ==
-Rejected event present in Optional? false
 ```
 
 ## For deeper coverage

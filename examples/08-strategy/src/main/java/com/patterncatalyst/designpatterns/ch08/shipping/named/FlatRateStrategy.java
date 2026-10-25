@@ -1,4 +1,4 @@
-package com.patterncatalyst.designpatterns.ch08.shipping.classic;
+package com.patterncatalyst.designpatterns.ch08.shipping.named;
 
 import com.patterncatalyst.designpatterns.ch08.shipping.Money;
 import com.patterncatalyst.designpatterns.ch08.shipping.RateQuote;
@@ -7,9 +7,9 @@ import com.patterncatalyst.designpatterns.ch08.shipping.Shipment;
 import java.util.Objects;
 
 /**
- * A Classic Java {@link RateStrategy} implementation: one named class, one
- * constructor, one field assignment, one override, before a single line of
- * pricing logic runs. This is the ceremony the Java 25 lambda form in
+ * A {@link RateStrategy} implementation as a named class: one constructor,
+ * one field assignment, one override, before a single line of pricing logic
+ * runs. This is the ceremony the lambda form in
  * {@code RateStrategies.flat(...)} collapses to one expression.
  */
 public final class FlatRateStrategy implements RateStrategy {

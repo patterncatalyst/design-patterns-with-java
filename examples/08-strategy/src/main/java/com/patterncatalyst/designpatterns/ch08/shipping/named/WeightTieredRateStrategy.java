@@ -1,4 +1,4 @@
-package com.patterncatalyst.designpatterns.ch08.shipping.classic;
+package com.patterncatalyst.designpatterns.ch08.shipping.named;
 
 import com.patterncatalyst.designpatterns.ch08.shipping.Money;
 import com.patterncatalyst.designpatterns.ch08.shipping.RateQuote;
@@ -9,10 +9,10 @@ import java.util.Objects;
 
 /**
  * Prices a shipment as a base charge plus a per-kilogram rate. This is the
- * Classic Java carrier of the three the book compares, one named class
- * holding its own {@code baseCents} and {@code perKgCents}, next to the
- * identical math expressed as a one-line lambda in {@code RateStrategies}
- * and as a {@link com.patterncatalyst.designpatterns.ch08.shipping.Carrier}
+ * named-class carrier of the three the book compares, holding its own
+ * {@code baseCents} and {@code perKgCents}, next to the identical math
+ * expressed as a one-line lambda in {@code RateStrategies} and as a
+ * {@link com.patterncatalyst.designpatterns.ch08.shipping.Carrier}
  * enum constant.
  */
 public final class WeightTieredRateStrategy implements RateStrategy {

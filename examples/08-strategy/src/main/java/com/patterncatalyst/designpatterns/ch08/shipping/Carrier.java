@@ -3,7 +3,7 @@ package com.patterncatalyst.designpatterns.ch08.shipping;
 /**
  * The company's three contracted carriers, each implementing
  * {@link RateStrategy} through its own constant-specific method body. Unlike
- * {@code classic.WeightTieredRateStrategy} or
+ * {@code named.WeightTieredRateStrategy} or
  * {@code RateStrategies.weightTiered(...)}, a {@code Carrier} is not built
  * from configuration and is not swapped in at runtime; the three constants
  * below are the entire, closed set of carriers this checkout ever quotes

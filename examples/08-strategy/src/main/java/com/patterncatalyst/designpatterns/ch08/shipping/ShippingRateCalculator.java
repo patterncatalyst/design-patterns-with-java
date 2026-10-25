@@ -7,7 +7,7 @@ import java.util.Objects;
  * holds. {@code ShippingRateCalculator} owns exactly one strategy at a time,
  * supplied through the constructor and reassignable later with
  * {@link #useStrategy(RateStrategy)}; nothing about this class changes
- * whether that strategy is a Classic Java concrete class, a Java 25 lambda,
+ * whether that strategy is a named concrete class, a lambda,
  * or a {@link Carrier} enum constant.
  */
 public final class ShippingRateCalculator {
