@@ -20,6 +20,30 @@
     candidate pattern and a candidate non-pattern, choose the idiomatic Java
     expression, test the behavior, and know when not to use it.
 
+- name: 02-pattern-vocabulary
+  section: "Ch. 2"
+  title: A pattern name as shared vocabulary
+  caption: >-
+    A pattern name sits between three readers, an engineer, a teammate, and an AI
+    assistant, each one meant to read the same forces off the same word, not just
+    the word itself.
+
+- name: 03-open-closed-extension
+  section: "Ch. 3"
+  title: Open for extension, closed for modification
+  caption: >-
+    InvoiceCalculator depends on the InvoiceRule abstraction, never on a concrete
+    rule, so a new rule arrives as a new type that implements the contract with
+    no edit to the calculator or the rules that predate it.
+
+- name: 04-dependency-inversion
+  section: "Ch. 4"
+  title: Inverting the dependency through an abstraction
+  caption: >-
+    A high-level policy depends on a role interface, not a concrete gateway, and
+    the concrete gateways implement that same abstraction, so both sides meet at
+    the interface instead of the policy reaching for a detail.
+
 - name: 08-strategy-forces
   section: "Ch. 8"
   title: Strategy's forces
