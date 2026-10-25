@@ -22,17 +22,17 @@ themselves.
 
 ## The three Strategy expressions
 
-1. **Classic Java** (`classic/FlatRateStrategy.java`,
-   `classic/WeightTieredRateStrategy.java`, `classic/DistanceRateStrategy.java`):
+1. **An interface with named classes** (`named/FlatRateStrategy.java`,
+   `named/WeightTieredRateStrategy.java`, `named/DistanceRateStrategy.java`):
    named concrete classes implementing the `RateStrategy` interface.
    `ShippingRateCalculator` owns exactly one at a time, injected through the
    constructor and reassignable later with `useStrategy()`.
-2. **Java 25, the same contract as a lambda** (`RateStrategies.java`): the
+2. **The same contract as a lambda** (`RateStrategies.java`): the
    identical `RateStrategy` functional interface, satisfied by a one-line
    lambda instead of a named class. `withInsuranceSurcharge()` composes a
    new strategy on top of an existing one, a capability a class hierarchy
    would need a decorator class to match.
-3. **Java 25, a closed set as enum constants** (`Carrier.java`): `GROUND`,
+3. **A closed set as enum constants** (`Carrier.java`): `GROUND`,
    `AIR_FLAT`, and `FREIGHT_ZONE` each implement `RateStrategy` through their
    own constant-specific method body. This is the company's entire,
    contracted carrier list; the compiler guarantees every constant supplies
@@ -61,7 +61,7 @@ mvn -f examples/pom.xml test
 ```
 
 Either path runs the same 33 JUnit 5 cases (AssertJ assertions), including a
-parameterized suite that asserts the Classic Java, lambda, and enum
+parameterized suite that asserts the interface, lambda, and enum
 expressions quote an identical `Shipment` identically, not just that each
 one runs without throwing.
 
@@ -75,16 +75,16 @@ than just reading an assertion that says they agree, run the demo:
 Expected output:
 
 ```
-== Classic Java: interface + named concrete classes ==
+== Interface: named classes implementing RateStrategy ==
 Weight-tiered strategy: RateQuote[quotedBy=ground, amount=$11.30]
 Distance-zone strategy (swapped at runtime): RateQuote[quotedBy=freight-zone, amount=$11.70]
 Flat-rate strategy (new instance): RateQuote[quotedBy=air-flat, amount=$9.99]
 
-== Java 25: the same contract as a lambda ==
+== Lambda: the same contract as a one-expression value ==
 Weight-tiered lambda: RateQuote[quotedBy=ground, amount=$11.30]
 Weight-tiered lambda + insurance (composed): RateQuote[quotedBy=ground, amount=$12.26]
 
-== Java 25: a closed set as enum constants ==
+== Enum: a closed set as constants ==
 GROUND: RateQuote[quotedBy=ground, amount=$11.30]
 AIR_FLAT: RateQuote[quotedBy=air-flat, amount=$9.99]
 FREIGHT_ZONE: RateQuote[quotedBy=freight-zone, amount=$11.70]
@@ -116,7 +116,7 @@ examples/08-strategy/
     RateStrategies.java                  # expression 2: lambdas + composition
     Carrier.java                          # expression 3: enum constants
     ShippingDemo.java                      # exercises all three
-    classic/
+    named/
       FlatRateStrategy.java                 # expression 1
       WeightTieredRateStrategy.java          # expression 1
       DistanceRateStrategy.java               # expression 1

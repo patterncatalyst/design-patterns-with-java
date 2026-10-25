@@ -25,7 +25,7 @@
     <name>Design Patterns with Java — ch08 Strategy</name>
     <description>
         Three idiomatic Java 25 expressions of Strategy against a shipping-rate
-        quoting domain: a Classic Java interface with named concrete
+        quoting domain: an interface with named concrete
         implementations, the same RateStrategy contract assigned directly as a
         lambda with a composition helper, and a closed set of carriers
         expressed as enum constants that each carry their own algorithm. A

@@ -3,8 +3,8 @@ package com.patterncatalyst.designpatterns.ch08.shipping;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.patterncatalyst.designpatterns.ch08.shipping.classic.DistanceRateStrategy;
-import com.patterncatalyst.designpatterns.ch08.shipping.classic.WeightTieredRateStrategy;
+import com.patterncatalyst.designpatterns.ch08.shipping.named.DistanceRateStrategy;
+import com.patterncatalyst.designpatterns.ch08.shipping.named.WeightTieredRateStrategy;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,7 +40,7 @@ class ShippingRateCalculatorTest {
     }
 
     @Test
-    void acceptsAJava25LambdaInterchangeablyWithAClassicConcreteClass() {
+    void acceptsALambdaInterchangeablyWithANamedClassStrategy() {
         ShippingRateCalculator calculator = new ShippingRateCalculator(
                 RateStrategies.weightTiered("ground", 500, 180));
 

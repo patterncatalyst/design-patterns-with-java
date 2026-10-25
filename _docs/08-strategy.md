@@ -4,7 +4,7 @@ order: 8
 layout: tutorial
 sectionid: docs
 part: "selecting-varying-behavior"
-description: "Three idiomatic Java ways to select a varying algorithm, taught against a real shipping-rate example: a Classic Java interface with concrete classes, the same contract assigned as a Java 25 lambda, and a closed set of carriers expressed as enum constants."
+description: "Three idiomatic Java 25 ways to select a varying algorithm, taught against a real shipping-rate example: an interface with named classes, the same contract assigned as a lambda, and a closed set of carriers expressed as enum constants."
 duration: "30 min"
 ---
 
@@ -14,9 +14,9 @@ By the end of this chapter you can:
 
 - Name the forces that make Strategy the right candidate pattern for a
   varying algorithm, and the plainer alternative it competes against.
-- Build a Strategy the Classic Java way: an interface, named concrete
-  implementations, and a caller that depends on the interface rather than on
-  which implementation it holds.
+- Build a Strategy as an interface with named classes: an interface,
+  named concrete implementations, and a caller that depends on the
+  interface rather than on which implementation it holds.
 - Build the identical contract as a Java 25 lambda, and explain what a
   one-expression strategy buys you over a dedicated class file.
 - Compose two strategies into a third one with a lambda, and say what a class
@@ -91,9 +91,9 @@ into each Strategy expression separately, a bug fixed in one would stay
 broken in the other two; keeping the rate math as a shared utility makes
 that class of bug impossible rather than merely unlikely.
 
-## Classic Java: an interface with concrete implementations
+## An interface with named classes
 
-The Classic Java shape is an interface and a family of named concrete
+One idiomatic shape is an interface and a family of named concrete
 classes, each implementing the one method the interface declares.
 `RateStrategy` declares a single method, `quote`, and three implementations
 satisfy it: `FlatRateStrategy`, `WeightTieredRateStrategy`, and
@@ -169,10 +169,10 @@ changes; the field is still typed `RateStrategy`, and it cannot tell whether
 the object it holds came from `new WeightTieredRateStrategy(...)` or from an
 expression that never declared a class at all.
 
-{% include codetabs.html langs="Classic Java|Java 25" %}
+{% include codetabs.html langs="Interface|Lambda" %}
 
 ```java
-// Classic Java: a dedicated file, a constructor, two fields, an override,
+// Interface: a dedicated file, a constructor, two fields, an override,
 // before the pricing math runs.
 public final class WeightTieredRateStrategy implements RateStrategy {
     private final String carrierName;
@@ -193,7 +193,7 @@ public final class WeightTieredRateStrategy implements RateStrategy {
 }
 ```
 ```java
-// Java 25: the identical contract, satisfied by one expression. No new
+// Lambda: the identical contract, satisfied by one expression. No new
 // class, no constructor, no field declarations to get right.
 public static RateStrategy weightTiered(String carrierName, long baseCents, long perKgCents) {
     return shipment -> new RateQuote(
@@ -231,7 +231,7 @@ public static RateStrategy withInsuranceSurcharge(RateStrategy base, double cent
 }
 ```
 
-Getting the same effect from the Classic Java interface would mean
+Getting the same effect from the interface form would mean
 introducing a decorator class, a second pattern, just to wrap one
 `RateStrategy` around another: a class implementing `RateStrategy` that
 holds a wrapped `RateStrategy` field, forwards to it, and adds the surcharge
@@ -287,32 +287,10 @@ with a `switch` statement and a `default` branch that throws, only catches a
 forgotten carrier at runtime, on whatever shipment happens to exercise it
 first.
 
-{% include codetabs.html langs="Classic Java|Java 25" %}
-
 ```java
-// Classic Java: a switch statement dispatches on carrier identity. Adding
-// a fourth carrier compiles cleanly even if this method is never updated;
-// the gap only shows up when a shipment for the new carrier hits the
-// default branch at runtime.
-public static RateQuote rateFor(Carrier carrier, Shipment shipment) {
-    switch (carrier) {
-        case GROUND:
-            return new RateQuote("ground", Money.ofCents(
-                    ShippingMath.weightTieredCents(500, 180, shipment.weightKg())));
-        case AIR_FLAT:
-            return new RateQuote("air-flat", Money.ofCents(999));
-        case FREIGHT_ZONE:
-            return new RateQuote("freight-zone", Money.ofCents(
-                    ShippingMath.distanceZoneCents(shipment.zone(), shipment.weightKg())));
-        default:
-            throw new IllegalArgumentException("Unknown carrier: " + carrier);
-    }
-}
-```
-```java
-// Java 25: each constant supplies its own body. Adding a fourth carrier
-// without giving it a quote() implementation is a compile error, not a
-// runtime surprise on whichever shipment reaches the missing case first.
+// Each constant supplies its own body. Adding a fourth carrier without
+// giving it a quote() implementation is a compile error, not a runtime
+// surprise on whichever shipment reaches the missing case first.
 public enum Carrier implements RateStrategy {
     GROUND { /* quote(Shipment) body */ },
     AIR_FLAT { /* quote(Shipment) body */ },
@@ -365,7 +343,7 @@ mvn test
 ```
 
 Either path runs the same 33 JUnit 5 cases, asserted with AssertJ, including
-a parameterized suite that checks the Classic Java, lambda, and enum
+a parameterized suite that checks the interface, lambda, and enum
 expressions against each other directly rather than against three separate
 expected values that happen to match. Observed locally on Fedora with
 Temurin 25.0.2:
@@ -387,22 +365,22 @@ It prints each expression's quote for the same 3.5 kilogram shipment headed
 to a `REGIONAL` destination zone with a declared value of $120:
 
 ```
-== Classic Java: interface + named concrete classes ==
+== Interface: named classes implementing RateStrategy ==
 Weight-tiered strategy: RateQuote[quotedBy=ground, amount=$11.30]
 Distance-zone strategy (swapped at runtime): RateQuote[quotedBy=freight-zone, amount=$11.70]
 Flat-rate strategy (new instance): RateQuote[quotedBy=air-flat, amount=$9.99]
 
-== Java 25: the same contract as a lambda ==
+== Lambda: the same contract as a one-expression value ==
 Weight-tiered lambda: RateQuote[quotedBy=ground, amount=$11.30]
 Weight-tiered lambda + insurance (composed): RateQuote[quotedBy=ground, amount=$12.26]
 
-== Java 25: a closed set as enum constants ==
+== Enum: a closed set as constants ==
 GROUND: RateQuote[quotedBy=ground, amount=$11.30]
 AIR_FLAT: RateQuote[quotedBy=air-flat, amount=$9.99]
 FREIGHT_ZONE: RateQuote[quotedBy=freight-zone, amount=$11.70]
 ```
 
-The Classic Java "Weight-tiered strategy", the Java 25 "Weight-tiered
+The named-class "Weight-tiered strategy", the "Weight-tiered
 lambda", and `GROUND` all quote `$11.30` for the same shipment. That
 agreement is the shared `ShippingMath` showing up as an observable fact at
 the terminal, not just as a passing test.

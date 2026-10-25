@@ -4,7 +4,7 @@ order: 0
 layout: tutorial
 sectionid: docs
 part: "orientation"
-description: "The JDK 25, Maven, JUnit 5, Mockito, and AssertJ toolchain this book builds against, how the Maven example harness works, and the codetabs convention that carries Classic Java and Java 25 side by side through every chapter."
+description: "The JDK 25, Maven, JUnit 5, Mockito, and AssertJ toolchain this book builds against, how the Maven example harness works, and why every code sample in this book is a single idiomatic Java 25 block."
 duration: "15 min"
 ---
 
@@ -16,7 +16,7 @@ By the end of this chapter you can:
 - Build and test any example with `mvn test`, both standalone and through the root aggregator.
 - Open this repository in IntelliJ IDEA or VS Code and have either one drive the same Maven build the command line uses.
 - Run `scripts/check-prereqs.sh` and read what it reports.
-- Read a codetabs block and explain why this book shows Classic Java and Java 25 side by side.
+- Explain why every code sample in this book is a single idiomatic Java 25 block, and when a codetabs comparison is used instead to set two modern idioms side by side.
 
 ## Why this matters
 
@@ -134,41 +134,31 @@ Open the repository's `examples/` directory as a Maven project; IntelliJ reads `
 
 With the Extension Pack for Java installed (which bundles the Language Support for Java extension, the Maven for Java extension, and the Test Runner for Java), opening the repository folder is enough. VS Code's Java extension reads `examples/pom.xml`, resolves the same dependency tree Maven would from the command line, and the Testing sidebar lists every JUnit 5 test method discovered in the project, runnable or debuggable individually. The integrated terminal runs the identical `mvn test` command either way, so you can switch between the Testing sidebar and the command line mid-chapter without reconfiguring anything.
 
-## The codetabs convention
+## How code samples appear in this book
 
-Nearly every code sample from here forward appears twice: once under a **Classic Java** tab and once under a **Java 25** tab, switchable with a click, synced across every tab group on the page, and remembered the next time you load a chapter. The point is not novelty. A pattern's shape rarely changes between the two, but its idiomatic expression often does: a Classic Java sample might build a strategy selector with an anonymous inner class and an `if`/`else if` chain over a type check, where the Java 25 tab reaches for a lambda assigned to a functional interface and a `switch` expression with pattern matching over sealed types. Seeing both side by side, for the same example, is what lets you recognize which era a piece of code you encounter elsewhere is written against, and what modernizing it would actually involve.
+Every code sample in this book is idiomatic modern Java 25, shown once, in a single fenced block. There is no older-Java tab to switch away from; the block you read is the form this book commits to, compiles against, and tests. A pattern's shape rarely changes between Java versions, but its idiomatic expression does, and the prose around a sample names that whenever it matters: a record replacing hand-written getters, equals, hashCode, and a defensive copy; a sealed interface and a pattern-matching switch replacing an `instanceof` chain; a switch expression replacing a switch statement that needed an explicit `break` on every branch. Naming that retirement, pattern by pattern, is as much a part of this book as the Gang of Four catalogue itself.
 
-Here is the convention itself, applied to the smallest possible example: describing a shipment's status.
+Occasionally two modern idioms both solve the same problem well enough that seeing them side by side clarifies the choice between them, never a modern form set against a retired one. For those cases this book reaches for the `codetabs.html` include, switchable with a click and labeled with the two idioms actually being compared. Here is the convention applied to the smallest useful example: describing a shipment's status, once as a lookup table and once as a switch expression.
 
-{% include codetabs.html langs="Classic Java|Java 25" %}
+{% include codetabs.html langs="Lookup map|Switch expression" %}
 
 ```java
-// Classic Java: an enum plus a switch statement, one case per status.
+// Lookup map: a Map<ShipmentStatus, String> built once, at class-init time.
 enum ShipmentStatus { PENDING, IN_TRANSIT, DELIVERED, DELAYED }
 
+private static final Map<ShipmentStatus, String> DESCRIPTIONS = Map.of(
+    ShipmentStatus.PENDING, "waiting for pickup",
+    ShipmentStatus.IN_TRANSIT, "en route",
+    ShipmentStatus.DELIVERED, "delivered",
+    ShipmentStatus.DELAYED, "delayed, revised ETA pending"
+);
+
 static String describe(ShipmentStatus status) {
-    String result;
-    switch (status) {
-        case PENDING:
-            result = "waiting for pickup";
-            break;
-        case IN_TRANSIT:
-            result = "en route";
-            break;
-        case DELIVERED:
-            result = "delivered";
-            break;
-        case DELAYED:
-            result = "delayed, revised ETA pending";
-            break;
-        default:
-            throw new IllegalStateException("unknown status: " + status);
-    }
-    return result;
+    return DESCRIPTIONS.get(status);
 }
 ```
 ```java
-// Java 25: a switch expression, exhaustive over the enum, no fallthrough or default.
+// Switch expression: exhaustive over the enum, no fallthrough or default.
 enum ShipmentStatus { PENDING, IN_TRANSIT, DELIVERED, DELAYED }
 
 static String describe(ShipmentStatus status) {
@@ -181,7 +171,7 @@ static String describe(ShipmentStatus status) {
 }
 ```
 
-Both compile under this chapter's toolchain, both produce the same output, and both appear in every chapter from here on exactly this way: one marker, then two fenced code blocks, Classic Java first. The through-line is Java 25 retiring a classic idiom: an anonymous class retired by a lambda, a manual builder retired by a record's canonical constructor, a `switch` statement retired by a `switch` expression that the compiler checks for exhaustiveness. Naming that retirement, pattern by pattern, is as much a part of this book as the Gang of Four catalogue itself.
+Both compile under this chapter's toolchain and produce the same output; the choice between them is a real design decision, not a vestige of an older release. Most chapters from here on never need this include at all. A single Java 25 block is the default for every sample in this book, and a codetab only appears where two modern idioms are both worth setting side by side.
 
 ## How this book works
 
@@ -191,5 +181,5 @@ Every pattern chapter also ships a runnable example under `examples/NN-pattern-n
 
 ## For deeper coverage
 
-- Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991) (Addison-Wesley), third edition: the source for the static-factory and immutability idioms this book's Java-25 codetabs apply throughout.
+- Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991) (Addison-Wesley), third edition: the source for the static-factory and immutability idioms this book's Java 25 examples apply throughout.
 - The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); each citation there is a pointer to the full book, not a substitute for reading it.

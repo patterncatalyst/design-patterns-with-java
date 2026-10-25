@@ -108,6 +108,9 @@
     <modules>
         <module>03-solid-first-principles</module>
         <module>04-dependency-inversion</module>
+        <module>05-resource-management</module>
+        <module>06-encapsulation</module>
+        <module>07-testing-with-junit</module>
         <module>08-strategy</module>
     </modules>
 

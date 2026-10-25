@@ -47,16 +47,12 @@ constructs `EmailGateway` or `SmsGateway` directly:
   because it needs both.
 - `DeliveryAuditor` depends on `DeliveryStatusProvider` alone.
 
-`OrderNotificationPolicy` also carries two idiomatic answers to the same
-question, whether an event with no customer contact should be rejected:
-`tryNotifyCustomerOptional` returns `Optional<DispatchResult>` and loses the
-rejection reason, the shape available before sealed interfaces and pattern
-matching. `tryNotifyCustomer` returns a sealed `NotificationOutcome`
+`OrderNotificationPolicy.tryNotifyCustomer` answers whether an event with no
+customer contact should be rejected: it returns a sealed `NotificationOutcome`
 (`Notified` or `Rejected`) and keeps the reason in the value itself.
-`DeliveryAuditor` carries the same before/after contrast for describing a
-`DeliveryState`: a Classic Java `switch` statement with a `default` branch,
-and a Java 25 `switch` expression with no `default`, where a missed
-`DeliveryState` constant is a compile error instead of a runtime surprise.
+`DeliveryAuditor.describeState` uses a Java 25 `switch` expression with no
+`default` to describe a `DeliveryState`, where a missed `DeliveryState`
+constant is a compile error instead of a runtime surprise.
 
 ## Dependency injection without a framework
 
@@ -90,12 +86,11 @@ Also picked up by the repository root's aggregator:
 mvn -f examples/pom.xml test
 ```
 
-Either path runs the same 26 JUnit 5 cases, asserted with AssertJ, including
+Either path runs the same 25 JUnit 5 cases, asserted with AssertJ, including
 a Mockito-based suite that substitutes a `MessageSender` test double for
 `OrderNotificationPolicy` and never links against a real gateway, and a
-parameterized suite that checks `DeliveryAuditor`'s Classic Java `switch`
-statement and Java 25 `switch` expression against each other for every
-`DeliveryState`.
+parameterized suite that checks `DeliveryAuditor`'s `switch` expression
+against the expected description for every `DeliveryState`.
 
 To see the composition root wire two gateways into three policies and
 exercise all of them, run the demo:
@@ -113,9 +108,6 @@ Audit for email-ORD-1002: confirmed delivered
 
 == Java 25: a sealed outcome that keeps the rejection reason ==
 Rejected: order event has no customerContact to notify
-
-== Classic Java comparison: Optional<DispatchResult> loses the reason ==
-Rejected event present in Optional? false
 ```
 
 ## Files
@@ -143,7 +135,7 @@ examples/04-dependency-inversion/
     GatewayRoleSeparationTest.java   # ISP as a runtime fact
     OrderNotificationPolicyTest.java  # Mockito MessageSender double
     TemplatedOrderNotifierTest.java    # Mockito doubles for two roles
-    DeliveryAuditorTest.java            # Classic vs Java 25 switch, parameterized
+    DeliveryAuditorTest.java            # switch expression, parameterized over DeliveryState
     EmailGatewayTest.java                # gateway behavior
     SmsGatewayTest.java                   # gateway behavior
     NotificationOutcomeTest.java           # sealed-interface behavior

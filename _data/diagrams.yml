@@ -44,6 +44,30 @@
     the concrete gateways implement that same abstraction, so both sides meet at
     the interface instead of the policy reaching for a detail.
 
+- name: 05-resource-lifecycle
+  section: "Ch. 5"
+  title: Guaranteed release on every path
+  caption: >-
+    A try-with-resources scope runs close() on both the normal exit and an
+    exception unwinding the block, so a resource is released exactly once no
+    matter how control leaves the scope.
+
+- name: 06-encapsulation-boundary
+  section: "Ch. 6"
+  title: What a caller sees across the package boundary
+  caption: >-
+    A caller depends only on the public interface and a static factory; the
+    concrete implementation and the representation behind it stay package-private,
+    free to change without touching the caller.
+
+- name: 07-test-anatomy
+  section: "Ch. 7"
+  title: The anatomy of one behavior test
+  caption: >-
+    One JUnit 5 test arranged with a mock, acting on the subject, and asserted two
+    ways: AssertJ on the returned value and Mockito.verify on the interaction with
+    a collaborator.
+
 - name: 08-strategy-forces
   section: "Ch. 8"
   title: Strategy's forces

@@ -41,9 +41,5 @@ public final class Main {
             case NotificationOutcome.Rejected rejected -> "Rejected: " + rejected.reason();
         };
         System.out.println(outcomeDescription);
-
-        System.out.println();
-        System.out.println("== Classic Java comparison: Optional<DispatchResult> loses the reason ==");
-        System.out.println("Rejected event present in Optional? " + smsNotifier.tryNotifyCustomerOptional(noContactEvent).isPresent());
     }
 }

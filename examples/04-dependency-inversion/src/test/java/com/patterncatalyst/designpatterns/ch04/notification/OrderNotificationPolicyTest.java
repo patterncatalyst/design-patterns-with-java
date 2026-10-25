@@ -59,15 +59,4 @@ class OrderNotificationPolicyTest {
 
         assertThat(outcome).isEqualTo(new NotificationOutcome.Notified(expected));
     }
-
-    @Test
-    void tryNotifyCustomerOptionalLosesTheRejectionReason() {
-        OrderEvent event = new OrderEvent("ORD-2004", "", "Your order is running late.");
-        OrderNotificationPolicy policy = new OrderNotificationPolicy(sender);
-
-        var outcome = policy.tryNotifyCustomerOptional(event);
-
-        assertThat(outcome).isEmpty();
-        verify(sender, never()).send(any());
-    }
 }
