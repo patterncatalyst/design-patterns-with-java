@@ -106,6 +106,8 @@
       to run against this aggregator until that module lands.
     -->
     <modules>
+        <module>03-solid-first-principles</module>
+        <module>04-dependency-inversion</module>
         <module>08-strategy</module>
     </modules>
 
