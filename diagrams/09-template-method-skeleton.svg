@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 430" font-family="'Red Hat Text', system-ui, sans-serif" role="img">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker><marker id="am" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b8650a"/></marker></defs>
+<rect x="20" y="20" width="860" height="140" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="32" y="40" font-size="12" font-weight="700" fill="#888">process(order) — fixed sequence, declared final</text>
+<rect x="20" y="200" width="410" height="210" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="32" y="220" font-size="12" font-weight="700" fill="#888">Abstract-method form</text>
+<rect x="460" y="200" width="420" height="210" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="472" y="220" font-size="12" font-weight="700" fill="#888">Functional form</text>
+<rect x="40" y="70" width="150" height="60" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="115.0" y="98.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Invariant</text>
+<text x="115.0" y="115.0" font-size="11.5" fill="#555555" text-anchor="middle">require ≥ 1 line</text>
+<rect x="263" y="70" width="150" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="338.0" y="98.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Hook</text>
+<text x="338.0" y="115.0" font-size="11.5" fill="#555555" text-anchor="middle">validateChannelRules()</text>
+<rect x="486" y="70" width="150" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="561.0" y="98.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Hook</text>
+<text x="561.0" y="115.0" font-size="11.5" fill="#555555" text-anchor="middle">priceOrder()</text>
+<rect x="709" y="70" width="150" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="784.0" y="98.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Hook</text>
+<text x="784.0" y="115.0" font-size="11.5" fill="#555555" text-anchor="middle">recordToLedger()</text>
+<rect x="40" y="235" width="370" height="45" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="225.0" y="263.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">RetailWebPipeline</text>
+<rect x="40" y="290" width="370" height="45" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="225.0" y="318.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">WholesalePipeline</text>
+<rect x="40" y="345" width="370" height="45" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="225.0" y="373.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">MarketplacePipeline</text>
+<rect x="480" y="235" width="380" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="670.0" y="268.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">FunctionalOrderPipeline</text>
+<text x="670.0" y="285.0" font-size="11.5" fill="#555555" text-anchor="middle">validator + pricer + recorder lambdas</text>
+<rect x="480" y="320" width="380" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="670.0" y="353.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ChannelPipelines</text>
+<text x="670.0" y="370.0" font-size="11.5" fill="#555555" text-anchor="middle">retailWeb() / wholesale() / marketplace()</text>
+<path d="M190,100 L263,100" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M413,100 L486,100" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M636,100 L709,100" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M338,235 L338,130" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="344.0" y="176.5" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">subclass overrides</text>
+<text x="344.0" y="176.5" font-size="11" fill="#555" text-anchor="middle">subclass overrides</text>
+<path d="M784,235 L784,130" fill="none" stroke="#b8650a" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#am)"/>
+<text x="790.0" y="176.5" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">lambdas supplied</text>
+<text x="790.0" y="176.5" font-size="11" fill="#b8650a" text-anchor="middle">lambdas supplied</text>
+<text x="40" y="185" font-size="11.5" fill="#888" text-anchor="start">process() returns one ProcessingResult built from the invariant check plus all three hook outputs, no matter which form supplied the hooks.</text>
+</svg>
