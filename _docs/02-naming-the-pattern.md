@@ -49,8 +49,8 @@ reading or producing the same word.
 
 ## A name is shorthand for a paragraph
 
-The previous chapter defined a force as a requirement that competes with
-another requirement in the same piece of code, and a pattern as the name a
+A force is a requirement that competes with
+another requirement in the same piece of code, and a pattern is the name a
 team gives to a recurring, specific way of resolving a cluster of those
 forces. Naming the pattern is the step where that definition becomes
 useful in conversation, not just in code. Say "Strategy" to an engineer who
@@ -143,7 +143,7 @@ forces inside it, and a model will reliably fill that hole with whichever
 pattern shape is statistically most familiar for code that resembles the
 surrounding context, whether or not the forces in your actual code call
 for it. This is not a flaw unique to AI tooling; it is the identical
-failure mode the previous chapter opened with, the engineer who reaches
+failure mode of reaching for a pattern before its forces are present, the engineer who reaches
 for a pattern's shape the moment it comes to mind, now running at a speed
 that can produce a full implementation in the time it used to take to
 describe the requirement. The fix is identical in both cases: supply the
@@ -200,8 +200,8 @@ four-argument constructor with named parameters will lead an assistant
 asked to "add a new optional field to the Builder" toward inventing a full
 builder class where a fifth constructor parameter, or a small parameter
 object, would have been the smaller, correct change. The fix in both
-cases, for a human reader and for a model, is the same discipline Chapter
-1 trained: a name is accurate only if it can be unpacked back into the
+cases, for a human reader and for a model, is the same discipline of recognizing
+the forces first: a name is accurate only if it can be unpacked back into the
 forces actually present, and a name that fails that test should be
 corrected or removed rather than left to mislead the next reader, human or
 otherwise.
@@ -225,7 +225,7 @@ center for a reason. Recognizing forces without ever naming them stays
 private; the reasoning lives in one engineer's head and has to be
 re-derived by everyone else who touches the code later. Naming a pattern
 without first recognizing the forces skips straight to decoration, the
-exact failure the previous chapter opened with. Naming is the hinge
+exact failure of applying a pattern with no force that calls for it. Naming is the hinge
 between the two: it is the step where private reasoning about trade-offs
 becomes a public, checkable word that a teammate can challenge, a future
 reader can trust, and an AI assistant can be prompted with and reviewed
