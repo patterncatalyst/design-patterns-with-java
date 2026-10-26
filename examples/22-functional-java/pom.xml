@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chapter 22 — Enums, functional interfaces, streams, and Optional as
+  patterns: a nightly shipment fulfillment batch.
+
+  Standalone-buildable: `cd examples/22-functional-java && mvn test` works
+  without touching the aggregator. Also picked up by ../pom.xml's
+  <modules>, so `mvn -f examples/pom.xml test` builds this module too. No
+  containers — plain Maven + JDK 25, per the repo's CLAUDE.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patterncatalyst.designpatterns</groupId>
+        <artifactId>design-patterns-with-java</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dp-22-functional-java</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Design Patterns with Java — ch22 Enums, functional interfaces, streams, and Optional</name>
+    <description>
+        Everyday Java 25 constructs expressing classic patterns against a
+        nightly shipment fulfillment batch: an enum carrying per-constant
+        surcharge behavior (Strategy) alongside a lambda satisfying the same
+        functional interface, an enum Singleton issuing manifest numbers, a
+        Runnable and a custom functional interface standing in for Command, a
+        function-parameter Template Method with one invariant step and two
+        supplied steps, composed UnaryOperator pricing adjustments, a stream
+        pipeline replacing hand-rolled loops, and Optional as the return type
+        for a rate lookup that does not always have an answer.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

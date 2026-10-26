@@ -171,3 +171,28 @@
     A fixed set of node kinds on one side, several independent operations on the
     other, each operation its own exhaustive pattern-matching switch with no accept
     method anywhere on the node types.
+
+- name: 21-records-sealed-switches
+  section: "Ch. 21"
+  title: Records and sealed types, operations as switches
+  caption: >-
+    A sealed set of record variants on one side and several external operations on
+    the other, each an exhaustive pattern-matching switch the compiler checks, with
+    no accept method anywhere on the record types.
+
+- name: 22-functional-java-pipeline
+  section: "Ch. 22"
+  title: Patterns as everyday functional Java
+  caption: >-
+    A shipment moves through enum-carried behavior, a functional Strategy or
+    Command, a stream pipeline, and an Optional return, each stage an idiomatic
+    Java 25 construct that is also a classic pattern in disguise.
+
+- name: 23-idiom-retirement-map
+  section: "Ch. 23"
+  title: Which Java 25 feature retires which idiom
+  caption: >-
+    Each classic idiom this book built by hand, paired with the Java 25 feature
+    that gets the identical guarantee from the compiler or the runtime instead: the
+    enum for the singleton, the record for the value class, sealed plus switch for
+    the visitor, Optional for the null check.

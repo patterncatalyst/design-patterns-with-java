@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chapter 21 — Records, sealed interfaces, and pattern matching: a shipping
+  rating engine.
+
+  Standalone-buildable: `cd examples/21-records-sealed-patterns && mvn test`
+  works without touching the aggregator. No containers — plain Maven + JDK 25,
+  per the repo's CLAUDE.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patterncatalyst.designpatterns</groupId>
+        <artifactId>design-patterns-with-java</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dp-21-records-sealed-patterns</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Design Patterns with Java — ch21 Records, sealed interfaces, and pattern matching</name>
+    <description>
+        A closed ParcelKind hierarchy of records with validating compact
+        constructors, a ShippingEvent hierarchy dispatched through
+        exhaustive pattern-matching switches with nested record
+        deconstruction and a guarded when clause, and a small RateRule
+        grammar evaluated by a recursive nested record-pattern switch.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
