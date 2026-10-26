@@ -118,6 +118,9 @@
         <module>12-factories</module>
         <module>13-builder-prototype</module>
         <module>14-singleton</module>
+        <module>15-adapter-facade-bridge</module>
+        <module>16-decorator-proxy</module>
+        <module>17-composite-flyweight-null</module>
     </modules>
 
 </project>

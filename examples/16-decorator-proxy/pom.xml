@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chapter 16 — Decorator and Proxy: a shipping-rate quoting pipeline.
+
+  Standalone-buildable: `cd examples/16-decorator-proxy && mvn test` works
+  without touching the aggregator. Also picked up by ../pom.xml's
+  <modules>, so `mvn -f examples/pom.xml test` builds this module too. No
+  containers — plain Maven + JDK 25, per the repo's CLAUDE.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patterncatalyst.designpatterns</groupId>
+        <artifactId>design-patterns-with-java</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dp-16-decorator-proxy</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Design Patterns with Java — ch16 Decorator and Proxy</name>
+    <description>
+        Decorator and Proxy against a shared RateQuoter contract over a
+        shipping-rate quoting pipeline. A LoggingRateQuoter, CachingRateQuoter,
+        and SurchargeRateQuoter stack in either order to show that stacking
+        order changes which layer sees a rate change, plus a functional
+        decoration factory for the identical contract. A hand-written
+        LazyCarrierGatewayProxy defers constructing the real carrier gateway,
+        and a java.lang.reflect.Proxy dynamic proxy gates access by clearance
+        level and counts intercepted calls.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
