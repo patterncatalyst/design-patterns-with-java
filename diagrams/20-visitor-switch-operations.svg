@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" font-family="'Red Hat Text', system-ui, sans-serif" role="img">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker><marker id="am" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b8650a"/></marker></defs>
+<rect x="30" y="70" width="290" height="310" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="42" y="90" font-size="12" font-weight="700" fill="#888">ManifestEntry (sealed)</text>
+<rect x="50" y="95" width="250" height="55" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="175.0" y="128.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">StandardParcel</text>
+<rect x="50" y="165" width="250" height="55" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="175.0" y="198.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">InternationalParcel</text>
+<rect x="50" y="235" width="250" height="55" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="175.0" y="268.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">HazardousParcel</text>
+<rect x="50" y="305" width="250" height="55" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="175.0" y="338.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">OversizedParcel</text>
+<rect x="400" y="185" width="150" height="90" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="475.0" y="220.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">exhaustive switch</text>
+<text x="475.0" y="237.5" font-size="11.5" fill="#555555" text-anchor="middle">no accept()</text>
+<text x="475.0" y="252.5" font-size="11.5" fill="#555555" text-anchor="middle">no default</text>
+<rect x="650" y="85" width="220" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="760.0" y="120.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">shippingCost(entry)</text>
+<rect x="650" y="195" width="220" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="760.0" y="230.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">customsSummary(entry)</text>
+<rect x="650" y="305" width="220" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="760.0" y="340.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">validate(entry)</text>
+<path d="M300,122 L400,210" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M300,192 L400,220" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M300,262 L400,250" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M300,332 L400,260" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M550,210 L650,115" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<path d="M550,230 L650,225" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<path d="M550,250 L650,335" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="450" y="30" font-size="18" fill="#888" text-anchor="middle" font-weight="700">Visitor as operations over a fixed, sealed hierarchy</text>
+<text x="450" y="418" font-size="11" fill="#888" text-anchor="middle">Each operation owns its own exhaustive switch; one dispatch point is shown for clarity.</text>
+<text x="450" y="438" font-size="11" fill="#888" text-anchor="middle">A fifth ManifestEntry kind fails every switch at compile time until each one adds a case.</text>
+</svg>

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" font-family="'Red Hat Text', system-ui, sans-serif" role="img">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker><marker id="am" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b8650a"/></marker></defs>
+<rect x="20" y="20" width="860" height="180" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="32" y="40" font-size="12" font-weight="700" fill="#888">Chain of Responsibility: a request passes until one handler takes it</text>
+<rect x="20" y="230" width="860" height="210" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="32" y="250" font-size="12" font-weight="700" fill="#888">Iterator: traversing a zone-bucketed ShipmentManifest</text>
+<rect x="40" y="95" width="130" height="70" rx="9" fill="#eef4fb" stroke="#2f6db5" stroke-width="2"/>
+<text x="105.0" y="120.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ApprovalRequest</text>
+<text x="105.0" y="137.5" font-size="11.5" fill="#555555" text-anchor="middle">weight, hazmat,</text>
+<text x="105.0" y="152.5" font-size="11.5" fill="#555555" text-anchor="middle">destination</text>
+<rect x="205" y="95" width="150" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="280.0" y="128.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">WeightLimitHandler</text>
+<text x="280.0" y="145.0" font-size="11.5" fill="#555555" text-anchor="middle">attempt()</text>
+<rect x="390" y="95" width="170" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="475.0" y="128.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">HazmatClearanceHandler</text>
+<text x="475.0" y="145.0" font-size="11.5" fill="#555555" text-anchor="middle">attempt()</text>
+<rect x="595" y="95" width="130" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="660.0" y="128.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">EmbargoHandler</text>
+<text x="660.0" y="145.0" font-size="11.5" fill="#555555" text-anchor="middle">attempt()</text>
+<rect x="750" y="95" width="110" height="70" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="805.0" y="120.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ManualReview</text>
+<text x="805.0" y="137.5" font-size="11.5" fill="#555555" text-anchor="middle">Handler</text>
+<text x="805.0" y="152.5" font-size="11.5" fill="#555555" text-anchor="middle">(fallback)</text>
+<rect x="40" y="295" width="210" height="80" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="145.0" y="325.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ShipmentManifest</text>
+<text x="145.0" y="342.5" font-size="11.5" fill="#555555" text-anchor="middle">LOCAL REGIONAL</text>
+<text x="145.0" y="357.5" font-size="11.5" fill="#555555" text-anchor="middle">NATIONAL INTERNATIONAL</text>
+<rect x="320" y="255" width="190" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="415.0" y="283.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Iterator&lt;Shipment&gt;</text>
+<text x="415.0" y="300.0" font-size="11.5" fill="#555555" text-anchor="middle">hides the buckets</text>
+<rect x="320" y="350" width="190" height="60" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="415.0" y="378.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Stream&lt;Shipment&gt;</text>
+<text x="415.0" y="395.0" font-size="11.5" fill="#555555" text-anchor="middle">via spliterator()</text>
+<rect x="590" y="300" width="170" height="70" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="675.0" y="325.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Zone order</text>
+<text x="675.0" y="342.5" font-size="11.5" fill="#555555" text-anchor="middle">LOCAL, REGIONAL,</text>
+<text x="675.0" y="357.5" font-size="11.5" fill="#555555" text-anchor="middle">NATIONAL, INTL</text>
+<path d="M170,130 L205,130" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<path d="M355,130 L390,130" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="378.5" y="124.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">not overweight</text>
+<text x="378.5" y="124.0" font-size="11" fill="#b8650a" text-anchor="middle">not overweight</text>
+<path d="M560,130 L595,130" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="583.5" y="124.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">not hazmat / cleared</text>
+<text x="583.5" y="124.0" font-size="11" fill="#b8650a" text-anchor="middle">not hazmat / cleared</text>
+<path d="M725,130 L750,130" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="743.5" y="124.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">not embargoed</text>
+<text x="743.5" y="124.0" font-size="11" fill="#b8650a" text-anchor="middle">not embargoed</text>
+<path d="M250,320 L320,285" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="291.0" y="296.5" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">iterator()</text>
+<text x="291.0" y="296.5" font-size="11" fill="#555" text-anchor="middle">iterator()</text>
+<path d="M250,350 L320,380" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="291.0" y="359.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">stream()</text>
+<text x="291.0" y="359.0" font-size="11" fill="#555" text-anchor="middle">stream()</text>
+<path d="M510,285 L590,325" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="556.0" y="299.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">for-each</text>
+<text x="556.0" y="299.0" font-size="11" fill="#b8650a" text-anchor="middle">for-each</text>
+<path d="M510,380 L590,345" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="556.0" y="356.5" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">collect</text>
+<text x="556.0" y="356.5" font-size="11" fill="#b8650a" text-anchor="middle">collect</text>
+<text x="450" y="185" font-size="13" fill="#888" text-anchor="middle">Each handler either decides or passes; ManualReviewHandler always decides.</text>
+<text x="450" y="420" font-size="13" fill="#888" text-anchor="middle">Both paths traverse the same four buckets in the same zone order.</text>
+</svg>
