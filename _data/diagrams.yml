@@ -99,3 +99,27 @@
     A request becomes a command that flows through a queue and an undo-redo history
     into the warehouse ledger, so it can be ordered, replayed, and reversed rather
     than run and forgotten.
+
+- name: 12-factory-family-selection
+  section: "Ch. 12"
+  title: One factory call, a consistent family
+  caption: >-
+    A regional factory resolves one toolkit from a region value, and the chosen
+    toolkit's whole family of label formatter, rate table, and customs form reaches
+    the client together, from a single factory call.
+
+- name: 13-builder-and-prototype
+  section: "Ch. 13"
+  title: Assemble then validate; copy an exemplar
+  caption: >-
+    A builder accumulates required and optional fields and validates every
+    invariant once at build time; a prototype clones a configured exemplar into an
+    independent copy rather than rebuilding it.
+
+- name: 14-singleton-vs-injected-collaborator
+  section: "Ch. 14"
+  title: Hidden global versus injected collaborator
+  caption: >-
+    A global singleton's callers reach one shared instance with no parameter
+    announcing it; the injected alternative routes the same capability through a
+    constructor a composition root controls, which is what makes it testable.

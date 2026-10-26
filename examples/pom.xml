@@ -115,6 +115,9 @@
         <module>09-template-method</module>
         <module>10-state-machines</module>
         <module>11-command</module>
+        <module>12-factories</module>
+        <module>13-builder-prototype</module>
+        <module>14-singleton</module>
     </modules>
 
 </project>
