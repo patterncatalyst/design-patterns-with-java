@@ -1,0 +1,9 @@
+{
+  "name": "design-patterns-with-java-decks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Companion slide decks for Design Patterns with Java",
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  }
+}
