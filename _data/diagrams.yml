@@ -271,3 +271,27 @@
     A router behind a stable interface consults a migration registry and sends each
     shipment to the legacy or the modern calculator, so the new implementation grows
     while the old still serves un-migrated traffic.
+
+- name: 33-final-project-composition
+  section: "Ch. 33"
+  title: The final project's composition root
+  caption: >-
+    The dispatch center as composition root: a builder resolves the rate strategy
+    per carrier, commands act on the shared shipment, and the shipment notifies its
+    status listeners, each pattern earning its place by the force it answers.
+
+- name: 33-final-project-sequence
+  section: "Ch. 33"
+  title: One shipment's run across the composed patterns
+  caption: >-
+    One shipment's run in time order through the composed patterns: open a quote,
+    pick up, dispatch, correct the weight, undo the correction, and deliver, with
+    illegal transitions refused.
+
+- name: 34-ai-verification-gate
+  section: "Ch. 34"
+  title: The human-AI loop with a verification gate
+  caption: >-
+    The engineer names the forces and the candidate pattern, an assistant drafts an
+    implementation, and a gate of behavior tests and an idiomatic review accepts the
+    draft or sends it back, keeping responsibility for correctness with the engineer.
