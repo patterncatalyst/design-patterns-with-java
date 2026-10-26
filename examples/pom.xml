@@ -127,6 +127,10 @@
         <module>21-records-sealed-patterns</module>
         <module>22-functional-java</module>
         <module>23-idiom-retirement</module>
+        <module>24-virtual-threads</module>
+        <module>25-resource-concurrency</module>
+        <module>26-shortcut-patterns</module>
+        <module>27-anti-patterns</module>
     </modules>
 
 </project>

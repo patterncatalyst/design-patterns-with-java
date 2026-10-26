@@ -196,3 +196,35 @@
     that gets the identical guarantee from the compiler or the runtime instead: the
     enum for the singleton, the record for the value class, sealed plus switch for
     the visitor, Optional for the null check.
+
+- name: 24-mount-unmount-carriers
+  section: "Ch. 24"
+  title: Virtual threads mount and unmount on carriers
+  caption: >-
+    Many virtual threads mount and unmount on a small pool of carrier threads while
+    they block on I/O, so thousands of blocking carrier calls run concurrently
+    without thousands of platform threads.
+
+- name: 25-bounded-resource-pool
+  section: "Ch. 25"
+  title: A bounded resource pool
+  caption: >-
+    A bounded connection pool hands out leases up to its capacity and blocks further
+    callers until one is returned, with a timeout path for a caller that waits too
+    long.
+
+- name: 26-shortcut-dispatch
+  section: "Ch. 26"
+  title: A key resolves to a short handler
+  caption: >-
+    A closed enum key and an open string key each resolve through a small dispatch
+    table to a short handler, and an unmatched open key still has a defined fallback
+    route.
+
+- name: 27-anti-patterns
+  section: "Ch. 27"
+  title: An over-patterned design collapses
+  caption: >-
+    A design stacked with a singleton registry, a one-implementation interface, a
+    factory of factories, and a god object collapses to the simpler service that
+    does the same job and passes the same tests.

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="'Red Hat Text', system-ui, sans-serif" role="img">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker><marker id="am" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b8650a"/></marker></defs>
+<rect x="20" y="20" width="860" height="240" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="32" y="40" font-size="12" font-weight="700" fill="#888">Over-engineered: a pattern with no force behind it</text>
+<rect x="20" y="300" width="860" height="180" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="32" y="320" font-size="12" font-weight="700" fill="#888">Appropriate: one value, one class</text>
+<rect x="40" y="70" width="180" height="70" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="130.0" y="103.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ShipmentOperationsManager</text>
+<text x="130.0" y="120.0" font-size="11.5" fill="#555555" text-anchor="middle">god object: 4 unrelated jobs</text>
+<rect x="250" y="70" width="190" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="345.0" y="103.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">RateCalculatorFactoryProvider</text>
+<text x="345.0" y="120.0" font-size="11.5" fill="#555555" text-anchor="middle">singleton #2: factory of factories</text>
+<rect x="470" y="70" width="180" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="560.0" y="103.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">RateCalculatorFactory</text>
+<text x="560.0" y="120.0" font-size="11.5" fill="#555555" text-anchor="middle">one implementation, ever</text>
+<rect x="680" y="70" width="180" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="770.0" y="103.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">StandardRateCalculator</text>
+<text x="770.0" y="120.0" font-size="11.5" fill="#555555" text-anchor="middle">reads the global every call</text>
+<rect x="40" y="180" width="260" height="60" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="170.0" y="208.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ShippingSurchargeRegistry</text>
+<text x="170.0" y="225.0" font-size="11.5" fill="#555555" text-anchor="middle">singleton #1: global mutable state</text>
+<rect x="630" y="180" width="230" height="60" rx="9" fill="#ffffff" stroke="#999999" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="745.0" y="208.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">An unrelated caller</text>
+<text x="745.0" y="225.0" font-size="11.5" fill="#555555" text-anchor="middle">reconfigures the same slot</text>
+<rect x="60" y="350" width="210" height="70" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="165.0" y="383.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">RateSettings</text>
+<text x="165.0" y="400.0" font-size="11.5" fill="#555555" text-anchor="middle">record: multiplier + fee</text>
+<rect x="350" y="350" width="220" height="70" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="460.0" y="383.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ShipmentPricingService</text>
+<text x="460.0" y="400.0" font-size="11.5" fill="#555555" text-anchor="middle">one class, one dependency</text>
+<rect x="650" y="350" width="200" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="750.0" y="383.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">PricingResult</text>
+<text x="750.0" y="400.0" font-size="11.5" fill="#555555" text-anchor="middle">total + surchargeApplied</text>
+<path d="M220,105 L250,105" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="241.0" y="99.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">resolves</text>
+<text x="241.0" y="99.0" font-size="11" fill="#555" text-anchor="middle">resolves</text>
+<path d="M440,105 L470,105" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="461.0" y="99.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">factory()</text>
+<text x="461.0" y="99.0" font-size="11" fill="#555" text-anchor="middle">factory()</text>
+<path d="M650,105 L680,105" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="671.0" y="99.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">createCalculator()</text>
+<text x="671.0" y="99.0" font-size="11" fill="#555" text-anchor="middle">createCalculator()</text>
+<path d="M770,140 L300,200" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="541.0" y="164.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">reads every call</text>
+<text x="541.0" y="164.0" font-size="11" fill="#b8650a" text-anchor="middle">reads every call</text>
+<path d="M630,210 L300,210" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="471.0" y="204.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">also sets</text>
+<text x="471.0" y="204.0" font-size="11" fill="#555" text-anchor="middle">also sets</text>
+<path d="M450,260 L450,300" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="456.0" y="274.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">collapses to</text>
+<text x="456.0" y="274.0" font-size="11" fill="#b8650a" text-anchor="middle">collapses to</text>
+<path d="M270,385 L350,385" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="316.0" y="379.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">constructor</text>
+<text x="316.0" y="379.0" font-size="11" fill="#555" text-anchor="middle">constructor</text>
+<path d="M570,385 L650,385" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="616.0" y="379.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">price(baseCost)</text>
+<text x="616.0" y="379.0" font-size="11" fill="#555" text-anchor="middle">price(baseCost)</text>
+<text x="450" y="545" font-size="11" fill="#888" text-anchor="middle">A pattern applied with no force present is the anti-pattern, independent of whether the code compiles.</text>
+</svg>
