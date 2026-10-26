@@ -72,6 +72,15 @@ mvn -v
 
 Maven 3.9.11 is the version this book's own toolchain is verified against; any Maven 3.9.x or newer works identically for every command in this book.
 
+**JBang** rounds out the toolchain wherever this book touches Quarkus. Install it through SDKMAN alongside JDK 25 and Maven:
+
+```bash
+sdk install jbang
+jbang version
+```
+
+Every Quarkus example in this book ships a JBang run path next to its Maven module: a single `.java` file under that example's `jbang/` directory with its own `//DEPS` line pinning the same Quarkus version the Maven module uses, runnable with `jbang jbang/<script>.java` and no project scaffolding. The Maven module remains the chapter's test of record; the JBang script is a faster way to read or prototype the same code.
+
 ## The build loop every example follows
 
 Every example in this book, from the orientation chapters through the final project, builds and tests the exact same way: one command, `mvn test`, run from the example's own directory.

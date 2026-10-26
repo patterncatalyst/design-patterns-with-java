@@ -421,6 +421,57 @@ confirmation that nothing beyond CDI itself loaded for this module, no
 datasource, no HTTP layer, no messaging client waiting on a container that
 was never started.
 
+### Running the same patterns with JBang
+
+`examples/28-quarkus-cdi/jbang/cdi-patterns.java` collapses this chapter's
+five mechanisms into a single file: a `CheckoutService` built by
+constructor injection, `RateQuoterProducer`'s `@Produces` factory method,
+`OperationLoggingInterceptor` bound through `@LoggedOperation`, a
+`ShipmentStatusChanged` event fired to two independent `@Observes`
+listeners, and a `RateConfig` bound with `@ConfigMapping`. Run it with:
+
+```sh
+jbang examples/28-quarkus-cdi/jbang/cdi-patterns.java
+```
+
+JBang suits Quarkus prototyping precisely because of what that command does
+not require: no `pom.xml`, no project directory, no separate compile step.
+The file pins `//DEPS io.quarkus:quarkus-arc:3.40.1.1` to the same Quarkus
+version the Maven module uses, and JBang's own Quarkus integration runs the
+same build-time Arc augmentation `mvn test` triggers through the
+`quarkus-maven-plugin`, so every annotation in the file wires the same way.
+A plain `Arc.initialize()` call over annotated classes with no augmentation
+step would not wire these beans on its own; JBang supplies that build step. The script prints the quote, the
+interceptor's log entry, a check that `CheckoutService` is the same Arc
+instance on every lookup, and both observers' view of the fired event:
+
+```
+--- @ConfigMapping: externalized Strategy selection ---
+shipping.rate.strategy  = weight-tiered
+shipping.rate.baseCents = 500
+
+--- constructor injection + @Produces factory + @AroundInvoke interceptor ---
+quote for TRK-100 = weight-tiered $11.30
+interceptor log: [quote returned RateQuote[quotedBy=weight-tiered, amount=$11.30] in 267us]
+CheckoutService is an Arc-managed singleton: true
+
+--- CDI event fired to two independent @Observes listeners ---
+DashboardNotifier saw:  TRK-100: CREATED -> DISPATCHED
+DeliveryAuditLog saw:   [ShipmentStatusChanged[trackingId=TRK-100, previousStatus=CREATED, newStatus=DISPATCHED]]
+```
+
+Pass `-Dshipping.rate.strategy=flat` before the script path to see the
+producer's `switch` pick `FlatRateQuoter` instead, with no change to the
+file itself:
+
+```sh
+jbang -Dshipping.rate.strategy=flat examples/28-quarkus-cdi/jbang/cdi-patterns.java
+```
+
+This script is an additional prototyping path, not a replacement for the
+Maven module: the seven `@QuarkusTest` cases above remain the chapter's
+test of record.
+
 ## For deeper coverage
 
 - Jakarta EE, [*Contexts and Dependency Injection for Java*](https://jakarta.ee/specifications/cdi/) specification: the formal definition of beans, scopes, producers, interceptor bindings, and events this chapter's example relies on.
