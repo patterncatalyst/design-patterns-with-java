@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" font-family="'Red Hat Text', system-ui, sans-serif" role="img">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker><marker id="am" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b8650a"/></marker></defs>
+<rect x="30" y="40" width="250" height="110" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="155.0" y="85.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">1. open()</text>
+<text x="155.0" y="102.5" font-size="11.5" fill="#555555" text-anchor="middle">Builder resolves RateStrategy</text>
+<text x="155.0" y="117.5" font-size="11.5" fill="#555555" text-anchor="middle">opening quote computed</text>
+<rect x="325" y="40" width="250" height="110" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="450.0" y="85.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">2. advance(PICK_UP)</text>
+<text x="450.0" y="102.5" font-size="11.5" fill="#555555" text-anchor="middle">State: legal transition</text>
+<text x="450.0" y="117.5" font-size="11.5" fill="#555555" text-anchor="middle">Observer notifies listeners</text>
+<rect x="620" y="40" width="250" height="110" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="745.0" y="85.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">3. advance(DISPATCH)</text>
+<text x="745.0" y="102.5" font-size="11.5" fill="#555555" text-anchor="middle">State: legal transition</text>
+<text x="745.0" y="117.5" font-size="11.5" fill="#555555" text-anchor="middle">Observer notifies listeners</text>
+<rect x="620" y="230" width="250" height="110" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="745.0" y="275.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">4. adjustWeightCommand()</text>
+<text x="745.0" y="292.5" font-size="11.5" fill="#555555" text-anchor="middle">Command invokes Strategy</text>
+<text x="745.0" y="307.5" font-size="11.5" fill="#555555" text-anchor="middle">weight + rate requoted</text>
+<rect x="325" y="230" width="250" height="110" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="450.0" y="275.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">5. undoLast()</text>
+<text x="450.0" y="292.5" font-size="11.5" fill="#555555" text-anchor="middle">Command restores snapshot</text>
+<text x="450.0" y="307.5" font-size="11.5" fill="#555555" text-anchor="middle">weight + rate restored</text>
+<rect x="30" y="230" width="250" height="110" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="155.0" y="275.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">6. advance(DELIVER)</text>
+<text x="155.0" y="292.5" font-size="11.5" fill="#555555" text-anchor="middle">State: legal transition</text>
+<text x="155.0" y="307.5" font-size="11.5" fill="#555555" text-anchor="middle">Observer notifies listeners</text>
+<path d="M280,95 L325,95" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M575,95 L620,95" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M745,150 L745,230" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M620,285 L575,285" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M325,285 L280,285" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="450" y="20" font-size="11" fill="#888" text-anchor="middle" font-weight="700">The same RateStrategy instance prices step 1, step 4, and the restore in step 5</text>
+</svg>
