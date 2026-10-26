@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chapter 32 — Refactor, rewrite, or strangler fig: an accessorial fee
+  calculator for shipping. LegacyAccessorialFeeCalculator is the
+  realistic inherited component, built for Part 10's exception to the
+  book's "idiomatic Java 25 only" rule. ModernAccessorialFeeCalculator is
+  its clean replacement, judged against the same characterization table.
+  StranglerFeeCalculatorRouter is the seam that routes each shipment to
+  one or the other while both coexist.
+
+  Standalone-buildable: `cd examples/32-refactor-rewrite && mvn test`
+  works without touching the aggregator. Also picked up by ../pom.xml's
+  <modules>, so `mvn -f examples/pom.xml test` builds this module too. No
+  containers — plain Maven + JDK 25, per the repo's CLAUDE.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patterncatalyst.designpatterns</groupId>
+        <artifactId>design-patterns-with-java</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dp-32-refactor-rewrite</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Design Patterns with Java — ch32 Refactor, rewrite, or strangler fig</name>
+    <description>
+        A legacy accessorial fee calculator for shipping (fuel surcharge,
+        residential delivery fee, liftgate fee, oversize fee), rebuilt as a
+        clean ModernAccessorialFeeCalculator behind the same
+        AccessorialFeeCalculator interface. A shared characterization table
+        pins both calculators' behavior, and StranglerFeeCalculatorRouter
+        routes each shipment to the legacy or modern implementation by
+        consulting a MigratedShipmentRegistry, so the cutover can move one
+        shipment at a time instead of all at once.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
