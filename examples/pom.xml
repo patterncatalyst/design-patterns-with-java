@@ -132,6 +132,10 @@
         <module>26-shortcut-patterns</module>
         <module>27-anti-patterns</module>
         <module>28-quarkus-cdi</module>
+        <module>29-seams</module>
+        <module>30-dependency-breaking</module>
+        <module>31-characterization</module>
+        <module>32-refactor-rewrite</module>
     </modules>
 
 </project>

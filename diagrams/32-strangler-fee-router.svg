@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" font-family="'Red Hat Text', system-ui, sans-serif" role="img">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker><marker id="am" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b8650a"/></marker></defs>
+<rect x="580" y="30" width="280" height="330" rx="12" fill="#fafafa" stroke="#ddd"/>
+<text x="592" y="50" font-size="12" font-weight="700" fill="#888">AccessorialFeeCalculator (shared interface)</text>
+<rect x="40" y="175" width="180" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="130.0" y="208.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Shipment service</text>
+<text x="130.0" y="225.0" font-size="11.5" fill="#555555" text-anchor="middle">(caller)</text>
+<rect x="280" y="160" width="240" height="100" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
+<text x="400.0" y="208.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">StranglerFeeCalculatorRouter</text>
+<text x="400.0" y="225.0" font-size="11.5" fill="#555555" text-anchor="middle">routes each shipment ID</text>
+<rect x="280" y="40" width="240" height="60" rx="9" fill="#ffffff" stroke="#999999" stroke-width="1.5"/>
+<text x="400.0" y="68.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">MigratedShipmentRegistry</text>
+<text x="400.0" y="85.0" font-size="11.5" fill="#555555" text-anchor="middle">tracks migrated shipment IDs</text>
+<rect x="610" y="60" width="220" height="80" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="720.0" y="98.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">LegacyAccessorialFeeCalculator</text>
+<text x="720.0" y="115.0" font-size="11.5" fill="#555555" text-anchor="middle">still serves unmigrated traffic</text>
+<rect x="610" y="270" width="220" height="80" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="720.0" y="308.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ModernAccessorialFeeCalculator</text>
+<text x="720.0" y="325.0" font-size="11.5" fill="#555555" text-anchor="middle">serves migrated traffic</text>
+<path d="M220,210 L280,210" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="256.0" y="204.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">calculateFees(manifest)</text>
+<text x="256.0" y="204.0" font-size="11" fill="#555" text-anchor="middle">calculateFees(manifest)</text>
+<path d="M400,160 L400,100" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="406.0" y="124.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">isMigrated(shipmentId)?</text>
+<text x="406.0" y="124.0" font-size="11" fill="#555" text-anchor="middle">isMigrated(shipmentId)?</text>
+<path d="M520,190 L610,100" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<text x="571.0" y="139.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">unmigrated</text>
+<text x="571.0" y="139.0" font-size="11" fill="#555" text-anchor="middle">unmigrated</text>
+<path d="M520,230 L610,310" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="571.0" y="264.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">migrated</text>
+<text x="571.0" y="264.0" font-size="11" fill="#b8650a" text-anchor="middle">migrated</text>
+</svg>
