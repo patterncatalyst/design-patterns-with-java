@@ -32,7 +32,7 @@ By the end of this chapter you can:
 ## Why this matters
 
 Every pattern in this book's catalogue is justified in its own chapter by a real
-force justifies it: Strategy when behavior varies by a condition a caller
+force that calls for it: Strategy when behavior varies by a condition a caller
 controls, Factory when which concrete type to build is itself a decision,
 Singleton when exactly one instance must exist and nothing needs to
 substitute a different one. The forces vocabulary matters here for a

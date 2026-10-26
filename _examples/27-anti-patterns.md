@@ -6,7 +6,7 @@ description: An over-patterned shipping design taken apart into the simpler form
 github_path: examples/27-anti-patterns
 card_eyebrow: "Chapter 27 · Anti-patterns"
 card_title: "Pattern misuse, taken apart"
-card_blurb: "A deliberately over-engineered pricing design (a mutable-global singleton registry, a one-implementation interface, a factory of factories, a god object with a leaky abstraction) contrasted with the simple ShipmentPricingService. A parameterized equivalence test proves the simple form behaves identically."
+card_blurb: "An over-engineered pricing design (a mutable-global singleton registry, a one-implementation interface, a factory of factories, a god object with a leaky abstraction) contrasted with the simple ShipmentPricingService. A parameterized equivalence test proves the simple form behaves identically."
 ---
 
 A pattern applied with no force that calls for it is over-engineering. This module
