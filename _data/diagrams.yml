@@ -338,3 +338,11 @@
   caption: >-
     Shipments migrate from the legacy calculator to the modern one one release at a
     time, with the totals unchanged across the cutover.
+
+- name: 40-principle-families
+  section: "Appendix F"
+  title: The six programming-principle families
+  caption: >-
+    The principle vocabulary grouped into six families, from a tight SOLID recap
+    through simplicity, structure, coupling, and interoperability to a process
+    family with no code shape at all.
