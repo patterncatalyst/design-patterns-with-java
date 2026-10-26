@@ -59,7 +59,7 @@ chapters.
   green on JDK 25 with NO container (verify no Dev Services / Docker needed). The
   @QuarkusTest suite proves each CDI mechanism (injection, producer, interceptor,
   event, config) behaves.
-- Quarkus pinned to 3.33 LTS (exact 3.33.x recorded). Idiomatic Quarkus/CDI
+- Quarkus pinned to 3.40.1.1 LTS (exact version recorded). Idiomatic Quarkus/CDI
   (lgtm-quarkus). Diagram paired SVG+excalidraw, C4, light-fill, no UML, registered
   + embedded.
 - 0 ban-tier voice; no em-dash; NO intra-book chapter-number cross-references; no
@@ -70,7 +70,7 @@ chapters.
   @QuarkusTest boot is heavy or needs a container, fall back to building the Quarkus
   module in a SEPARATE CI job (and keep it out of the plain aggregator run) — but
   first try the single-aggregator path; it should work for pure Arc.
-- Quarkus 3.33 vs JDK 25: resolved in planning (full support); pin exactly and
+- Quarkus 3.40.1.1 vs JDK 25: resolved (full support); pin exactly and
   record the version. If an incompatibility surfaces, record the hold + reason.
 
 ## Notes
