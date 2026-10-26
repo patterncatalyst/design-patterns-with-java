@@ -123,3 +123,27 @@
     A global singleton's callers reach one shared instance with no parameter
     announcing it; the injected alternative routes the same capability through a
     constructor a composition root controls, which is what makes it testable.
+
+- name: 15-adapter-facade-bridge-forces
+  section: "Ch. 15"
+  title: Adapt, simplify, or split an abstraction
+  caption: >-
+    Adapter wraps a foreign type to the interface the app expects, Facade presents
+    one small surface over a subsystem, and Bridge lets an abstraction and its
+    implementation vary without a class for every combination.
+
+- name: 16-decorator-proxy
+  section: "Ch. 16"
+  title: Wrapping to add behavior or control access
+  caption: >-
+    A decorator stack adds behavior layer by layer behind the same interface, while
+    a proxy stands in front of the real subject through that same interface to
+    control access, caching, or lazy creation.
+
+- name: 17-composite-flyweight-tree-and-pool
+  section: "Ch. 17"
+  title: A uniform tree and a shared pool
+  caption: >-
+    Composite lets a leaf and a tree answer the same interface so a caller treats
+    them alike; Flyweight interns one shared instance of immutable intrinsic state
+    that many objects point at instead of each holding a copy.
