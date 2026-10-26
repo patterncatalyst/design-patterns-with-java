@@ -147,3 +147,27 @@
     Composite lets a leaf and a tree answer the same interface so a caller treats
     them alike; Flyweight interns one shared instance of immutable intrinsic state
     that many objects point at instead of each holding a copy.
+
+- name: 18-observer-mediator
+  section: "Ch. 18"
+  title: Fan-out to listeners; route through a hub
+  caption: >-
+    An Observer subject fans a change out to independent listeners that it never
+    names, next to a Mediator hub that routes between collaborators so they never
+    call each other directly.
+
+- name: 19-chain-iterator
+  section: "Ch. 19"
+  title: Pass along handlers; traverse without exposing structure
+  caption: >-
+    A request passes down a chain of handlers until one takes it and the rest never
+    run, while an iterator walks an aggregate's elements in order without the caller
+    knowing how they are stored.
+
+- name: 20-visitor-switch-operations
+  section: "Ch. 20"
+  title: Operations as switches over a fixed set
+  caption: >-
+    A fixed set of node kinds on one side, several independent operations on the
+    other, each operation its own exhaustive pattern-matching switch with no accept
+    method anywhere on the node types.
