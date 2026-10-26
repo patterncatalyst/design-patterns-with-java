@@ -238,3 +238,36 @@
     for Factory, @ApplicationScoped plus constructor injection for Singleton and DI,
     an @AroundInvoke interceptor for Decorator and Proxy, and a CDI event with
     @Observes for Observer.
+
+- name: 29-seams-and-substitution
+  section: "Ch. 29"
+  title: Seams make a dependency substitutable
+  caption: >-
+    The same inherited dependencies made substitutable: an object seam injects a
+    Clock, an extract-interface seam puts a CarrierGateway behind an interface a test
+    can replace, and subclass-and-override opens a seam where there is no constructor
+    to change.
+
+- name: 30-dependency-breaking
+  section: "Ch. 30"
+  title: Breaking a hard-wired dependency
+  caption: >-
+    A class that constructs and calls a concrete collaborator directly, with no seam,
+    becomes testable once Extract Interface and Parameterize Constructor let either
+    the real gateway or a test double sit behind the interface.
+
+- name: 31-characterization-as-a-safety-net
+  section: "Ch. 31"
+  title: Characterization tests as a safety net
+  caption: >-
+    A characterization suite pins the legacy calculator's current behavior, so a
+    Fowler-style refactor to a cleaner calculator is verified safe when every pinned
+    case stays green.
+
+- name: 32-strangler-fee-router
+  section: "Ch. 32"
+  title: A strangler router over old and new
+  caption: >-
+    A router behind a stable interface consults a migration registry and sends each
+    shipment to the legacy or the modern calculator, so the new implementation grows
+    while the old still serves un-migrated traffic.
