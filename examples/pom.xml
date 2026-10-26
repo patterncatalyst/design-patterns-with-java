@@ -124,6 +124,9 @@
         <module>18-observer-mediator</module>
         <module>19-chain-iterator</module>
         <module>20-visitor-memento-interpreter</module>
+        <module>21-records-sealed-patterns</module>
+        <module>22-functional-java</module>
+        <module>23-idiom-retirement</module>
     </modules>
 
 </project>
