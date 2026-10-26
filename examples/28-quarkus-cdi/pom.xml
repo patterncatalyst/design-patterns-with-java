@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Chapter 28 — Patterns in a real framework: Quarkus and CDI. A shipping
+  domain where Quarkus's CDI container (Arc) provides, as framework
+  features, the patterns the rest of this book built by hand: constructor
+  injection into an @ApplicationScoped bean (Singleton + DI), a @Produces
+  method (Factory), an @AroundInvoke interceptor bound by an
+  @InterceptorBinding (Decorator/Proxy), a CDI event with @Observes
+  (Observer), and @ConfigMapping (externalized Strategy selection).
+
+  Standalone-buildable: `cd examples/28-quarkus-cdi && mvn test` works
+  without touching the aggregator. Also picked up by ../pom.xml's
+  <modules>, so `mvn -f examples/pom.xml test` builds this module too.
+
+  Pure CDI/Arc only: the only Quarkus extension is quarkus-arc, so there is
+  no datasource, Kafka, or messaging extension to trigger Quarkus Dev
+  Services. `mvn test` boots the Arc container in-process and runs the
+  @QuarkusTest suite with no container, no Docker, and no network access.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patterncatalyst.designpatterns</groupId>
+        <artifactId>design-patterns-with-java</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>dp-28-quarkus-cdi</artifactId>
+    <packaging>quarkus</packaging>
+
+    <name>Design Patterns with Java — ch28 Patterns in a real framework: Quarkus and CDI</name>
+    <description>
+        A shipping-rate checkout service built on Quarkus/CDI (Arc) instead
+        of by hand: RateQuoterProducer's @Produces method chooses a
+        FlatRateQuoter or a WeightTieredRateQuoter from a typed
+        @ConfigMapping, CheckoutService receives that RateQuoter through
+        constructor @Inject as an @ApplicationScoped container-managed
+        singleton, OperationLoggingInterceptor wraps CheckoutService.quote()
+        through an @InterceptorBinding, and a CDI Event&lt;ShipmentStatusChanged&gt;
+        fans a dispatch out to two independent @Observes listeners. The
+        parent supplies the Java version; this module imports the Quarkus
+        platform BOM for everything Quarkus-specific.
+    </description>
+
+    <properties>
+        <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
+        <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
+        <!-- Quarkus 3.40 LTS, the current LTS line, superseding 3.33 LTS
+             (verified on Maven Central at authoring time: 3.40.1.1 is the
+             newest 3.40.x release, an LTS emergency security release on top
+             of 3.40.1). Full Java 25 support. -->
+        <quarkus.platform.version>3.40.1.1</quarkus.platform.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>${quarkus.platform.artifact-id}</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <extensions>true</extensions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                        <maven.home>${maven.home}</maven.home>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

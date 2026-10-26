@@ -131,6 +131,7 @@
         <module>25-resource-concurrency</module>
         <module>26-shortcut-patterns</module>
         <module>27-anti-patterns</module>
+        <module>28-quarkus-cdi</module>
     </modules>
 
 </project>
