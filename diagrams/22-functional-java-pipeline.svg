@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" font-family="'Red Hat Text', system-ui, sans-serif" role="img">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker><marker id="am" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b8650a"/></marker></defs>
+<rect x="20" y="80" width="130" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="85.0" y="113.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Shipment</text>
+<text x="85.0" y="130.0" font-size="11.5" fill="#555555" text-anchor="middle">a record: weight, zone, tier</text>
+<rect x="170" y="80" width="150" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="245.0" y="113.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">PackagingTier + ManifestSequence</text>
+<text x="245.0" y="130.0" font-size="11.5" fill="#555555" text-anchor="middle">enum constant body + enum Singleton</text>
+<rect x="340" y="80" width="170" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="425.0" y="113.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">FulfillmentPipeline(validate, price)</text>
+<text x="425.0" y="130.0" font-size="11.5" fill="#555555" text-anchor="middle">+ NotificationCommand / Runnable</text>
+<rect x="530" y="80" width="150" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="605.0" y="113.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">FulfillmentBatch</text>
+<text x="605.0" y="130.0" font-size="11.5" fill="#555555" text-anchor="middle">map / filter / groupingBy</text>
+<rect x="700" y="80" width="160" height="70" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+<text x="780.0" y="113.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ZoneRateLookup.baseRateFor(zone)</text>
+<text x="780.0" y="130.0" font-size="11.5" fill="#555555" text-anchor="middle">returns Optional&lt;Money&gt;</text>
+<rect x="170" y="215" width="150" height="50" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="245.0" y="245.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Strategy / Singleton</text>
+<rect x="340" y="215" width="170" height="50" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="425.0" y="245.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Template Method / Command</text>
+<rect x="530" y="215" width="150" height="50" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="605.0" y="245.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Declarative pipeline, replaces a loop</text>
+<rect x="700" y="215" width="160" height="50" rx="9" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+<text x="780.0" y="245.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">Optional: the honest maybe</text>
+<path d="M150,115 L170,115" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M320,115 L340,115" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M510,115 L530,115" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M680,115 L700,115" fill="none" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+<path d="M245,150 L245,215" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<path d="M425,150 L425,215" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<path d="M605,150 L605,215" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<path d="M780,150 L780,215" fill="none" stroke="#b8650a" stroke-width="2" marker-end="url(#am)"/>
+<text x="450" y="30" font-size="11" fill="#888" text-anchor="middle" font-weight="700">One nightly fulfillment batch, four everyday Java 25 constructs doing pattern work</text>
+</svg>
