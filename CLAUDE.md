@@ -134,6 +134,20 @@ chapter.
 - `lgtm-idiomatic-review` — idiomatic-Java review pass on example code.
 - `lgtm-github` — branch/PR/tag/release workflow for this GitHub-hosted repo.
 - `lgtm-relay` — plan/execute/validate relay for a release iteration.
-- `lgtm-quarkus` — for the Chapter 9 "patterns in the wild" chapter ONLY,
+- `lgtm-quarkus` — for the "patterns in the wild" Quarkus/CDI chapter ONLY,
   where patterns are shown inside a real Quarkus service; no other chapter
   needs this skill.
+
+## Quarkus and JBang (house rule)
+
+Anything Quarkus-related in this book also uses **JBang**: the Quarkus
+toolchain includes JBang (installed via SDKMAN, `sdk install jbang`), and any
+Quarkus example ships a JBang run-path (a single-file `jbang/*.java` script
+with inline `//DEPS` pinned to the same Quarkus LTS) alongside the Maven
+module, so a reader can run or prototype the Quarkus code with no project
+scaffolding. The prerequisites chapter lists JBang in the Quarkus track.
+Quarkus is pinned to the current **LTS, 3.40.1.1** (verify the latest LTS at
+authoring time; never a non-LTS or stale pin). Use `io.quarkus:quarkus-junit`
+for `@QuarkusTest` (the `quarkus-junit5` coordinate is now a relocation stub).
+Keep the Quarkus example container-free (`quarkus-arc` only, no Dev Services)
+so `mvn test` runs on JDK 25 with no Docker.
