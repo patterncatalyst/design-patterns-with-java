@@ -228,3 +228,13 @@
     A design stacked with a singleton registry, a one-implementation interface, a
     factory of factories, and a god object collapses to the simpler service that
     does the same job and passes the same tests.
+
+- name: 28-quarkus-cdi-composition-root
+  section: "Ch. 28"
+  title: The CDI container as composition root
+  caption: >-
+    The Quarkus Arc container wires the beans, and each CDI mechanism answers a
+    pattern the book built by hand: @ConfigMapping for Strategy selection, @Produces
+    for Factory, @ApplicationScoped plus constructor injection for Singleton and DI,
+    an @AroundInvoke interceptor for Decorator and Proxy, and a CDI event with
+    @Observes for Observer.
