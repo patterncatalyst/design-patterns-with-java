@@ -295,3 +295,46 @@
     The engineer names the forces and the candidate pattern, an assistant drafts an
     implementation, and a gate of behavior tests and an idiomatic review accepts the
     draft or sends it back, keeping responsibility for correctness with the engineer.
+
+- name: 10-table-vs-switch-dispatch
+  section: "Ch. 10"
+  title: Transition table versus exhaustive switch
+  caption: >-
+    The same shipment transition stated two ways: an EnumMap transition table and a
+    sealed-interface exhaustive switch, where a missing case is a compile error
+    rather than a silent miss.
+
+- name: 11-undo-redo-stack-mechanics
+  section: "Ch. 11"
+  title: The undo and redo stacks in motion
+  caption: >-
+    The done and undone deques across execute, undo, and a fresh execute, showing how
+    a new command clears the redo branch.
+
+- name: 16-decorator-stacking-order
+  section: "Ch. 16"
+  title: Decorator order changes the result
+  caption: >-
+    The same two decorators in opposite order produce different totals, a behavioral
+    difference the static stack view cannot show.
+
+- name: 24-virtual-thread-timeline
+  section: "Ch. 24"
+  title: Unbounded versus bounded fan-out timing
+  caption: >-
+    A wall-clock contrast: an unbounded virtual-thread fan-out finishes in one slow
+    call's time, while a Semaphore-capped fan-out serializes into waves.
+
+- name: 25-active-object-decoupling
+  section: "Ch. 25"
+  title: An active object decouples the call from the work
+  caption: >-
+    Callers hand work to a queue and get a future back; a single worker thread drains
+    the queue, so the call is decoupled from the thread that runs it.
+
+- name: 32-strangler-cutover-timeline
+  section: "Ch. 32"
+  title: A reversible, slice-by-slice cutover
+  caption: >-
+    Shipments migrate from the legacy calculator to the modern one one release at a
+    time, with the totals unchanged across the cutover.

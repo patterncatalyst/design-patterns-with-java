@@ -282,6 +282,8 @@ place. A history that kept the old redo branch around after a new command
 ran would let `redo()` jump to a state that contradicts whatever the
 operator just did, which is worse than discarding that branch.
 
+{% include excalidraw.html name="11-undo-redo-stack-mechanics" caption="Figure 11.2: three snapshots of CommandHistory's two Deques. Running C1 through C3 fills the done stack; undo() pops C3 off done and pushes it onto undone; executing a new command, C4, clears undone entirely rather than leaving C3 reachable by a later redo()." %}
+
 The stack shape also explains why this is a `Deque` used as a stack, not a
 list. Both operations only ever touch the most recent end. `undo()` can
 only step back one command at a time, in the exact reverse of the order

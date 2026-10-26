@@ -206,6 +206,8 @@ goes in a stack is deciding what information reaches it, which is a
 design decision with observable consequences, not a stylistic choice a
 reviewer can wave past.
 
+{% include excalidraw.html name="16-decorator-stacking-order" caption="Figure 16.2: the same two decorator classes, nested in opposite order around the identical core. Surcharge outside Caching recomputes on every call, so raising the rate between two lookups changes the second total; Caching outside Surcharge memoizes the already-surcharged amount, so the same rate change has no effect until the shipment itself changes." %}
+
 ## Java 25: the same decorators without a class file
 
 `RateQuoter` declares exactly one abstract method, which makes it a

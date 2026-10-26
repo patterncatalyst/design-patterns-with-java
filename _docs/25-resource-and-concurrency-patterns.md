@@ -249,6 +249,8 @@ Virtual threads earn their keep when a program needs thousands of them
 blocked on I/O at once, not when it needs one dedicated, long-lived
 timeline.
 
+{% include excalidraw.html name="25-active-object-decoupling" caption="Figure 25.2: three callers enqueue onto the same BlockingQueue and get a CompletableFuture back immediately; one dedicated worker thread drains the queue FIFO and completes each future later, off the caller's own thread. A direct synchronous call, by contrast, blocks each caller until the print finishes." %}
+
 ## Supporting idioms: ThreadLocal and defensive snapshots
 
 `TrackingCodeGenerator` hashes a parcel id with `MessageDigest`, an object
