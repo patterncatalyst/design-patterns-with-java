@@ -290,6 +290,8 @@ not a shared helper, is what a cross-check test in this example's suite
 verifies by driving an identical event sequence through both machines and
 asserting they land on the same status after every step.
 
+{% include excalidraw.html name="10-table-vs-switch-dispatch" caption="Figure 10.2: the identical (PACKED, SHIP) → IN_TRANSIT rule stated two ways. The table only lists the three statuses that have any legal move at all; the switch lists all seven, with no default, so a missing case is a compile error rather than a silent miss." %}
+
 ## When each idiom fits
 
 Reach for the enum-and-table form when the only thing that distinguishes

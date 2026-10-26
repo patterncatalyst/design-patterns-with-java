@@ -333,6 +333,8 @@ to the business because the characterization table proved it would be
 before `StranglerFeeCalculatorRouter` ever routed a single shipment to
 `ModernAccessorialFeeCalculator`.
 
+{% include excalidraw.html name="32-strangler-cutover-timeline" caption="Figure 32.2: the same three shipments across three releases. One shipment migrates at a time, from legacy to modern, and every printed total holds steady through the cutover, because the characterization suite proved the two calculators agree before any traffic moved." %}
+
 > **AI sidebar.** Ask an LLM pairing partner to "modernize this legacy fee
 > calculator" and a common first answer is a full rewrite: a tidy
 > configuration record, maybe a rules engine, built from whatever the

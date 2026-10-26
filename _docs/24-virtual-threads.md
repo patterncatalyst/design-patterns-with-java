@@ -165,6 +165,8 @@ shows the effect directly: capping eight carriers to three in flight at once
 takes noticeably longer than the unbounded run, because only three calls
 are ever blocking at the same instant.
 
+{% include excalidraw.html name="24-virtual-thread-timeline" caption="Figure 24.2: the same eight carrier calls over wall-clock time. Unbounded, all eight start at once and the fan-out finishes with the slowest call, around 301 ms; bounded to three in flight, a 4th, 5th, and 6th call only start once a Semaphore permit frees up, stretching the same eight calls to roughly 700 ms." %}
+
 ## A shared cache under concurrent load
 
 A fan-out often wants to track the cheapest quote seen so far while calls
