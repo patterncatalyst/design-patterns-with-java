@@ -323,5 +323,5 @@ attached to it.
 ## For deeper coverage
 
 - The official [Mockito documentation](https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html): the complete mock, spy, matcher, `ArgumentCaptor`, and strict-stubbing API this appendix summarizes.
-- Gerard Meszaros, [*xUnit Test Patterns: Refactoring Test Code*](https://www.informit.com/store/xunit-test-patterns-refactoring-test-code-9780131495050) (Addison-Wesley): the mock, stub, spy, and fake taxonomy this appendix's closing section draws its vocabulary from.
+- Gerard Meszaros, [*xUnit Test Patterns: Refactoring Test Code*](https://www.informit.com/store/xunit-test-patterns-refactoring-test-code-9780132800051) (Addison-Wesley): the mock, stub, spy, and fake taxonomy this appendix's closing section draws its vocabulary from.
 - The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); each citation there is a pointer to the full book, not a substitute for reading it.
