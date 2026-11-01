@@ -1,6 +1,6 @@
 # 23 - Where Java 25 retires classic idioms
 
-This example is the book's through-line capstone. Four classic idioms, each
+This example is the book's through-line final project. Four classic idioms, each
 covered earlier in this book as the thing you reached for by hand, retired
 here by a modern Java 25 feature that gets the same guarantee from the
 compiler or the language runtime instead. Every class below is the modern
