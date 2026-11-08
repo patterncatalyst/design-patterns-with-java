@@ -5,385 +5,253 @@ layout: tutorial
 sectionid: docs
 part: appendices
 appendix: "B"
-description: "A reference for the JUnit 5 annotations, lifecycle, assertions, and parameterized/dynamic test styles this book's examples use, and how Maven Surefire runs them."
+description: "Reference for the JUnit 5 annotations, lifecycle, assertions, parameterized and dynamic tests the examples use, and how Maven Surefire runs them."
 duration: "15 min"
 ---
 
-## What this appendix covers
+## Learning objectives
 
-Every example's test suite in this book runs on JUnit 5 (Jupiter). The
-testing chapter builds that foundation narratively, against a shipment
-booking service with a validator, a cost calculator, and a rate ledger.
-This appendix is the lookup table: the annotations, what each one
-guarantees, and when to reach for which one. Mocking collaborators with
-Mockito has its own appendix; nothing here covers `@Mock` or `verify`
-beyond acknowledging where a test needs one.
+By the end of this appendix you can:
 
-## `@Test`: registering a case
+- Pick the JUnit 5 annotation for a case, a fixture, a table of inputs or a grouping.
+- Say what each lifecycle method guarantees and when it runs.
+- Choose a parameter source for a list, an enum, a CSV row or an object row.
+- Run one class, one tag or the whole aggregator through Surefire.
 
-`@Test` marks a no-argument instance method as a test case. Jupiter
-discovers every `@Test` method on the class, creates a fresh instance of
-the class for each one, and runs it independently of every other test:
+## Why this matters
+
+Every example's tests run on JUnit 5 (Jupiter), with AssertJ for assertions and Mockito for collaborators. Writing tests against a shipment booking service is covered in [Testing with JUnit 5, Mockito, and AssertJ]({{ '/docs/07-testing-with-junit/' | relative_url }}); Mockito has its own [reference]({{ '/docs/37-appendix-c-mockito/' | relative_url }}). This page is the lookup table. The listings come from the booking example: a `ShipmentValidator`, a `FreightCostCalculator` and an `InMemoryRateLedger`.
+
+## Annotations at a glance
+
+| Annotation | Guarantee | Use it when |
+|---|---|---|
+| `@Test` | A no-argument method runs as one case, on a fresh instance of the class | Every single case |
+| `@BeforeEach` / `@AfterEach` | Runs before and after every test; `@AfterEach` runs even when a test fails | A fixture rebuilt per test, or a postcondition every test must hold |
+| `@BeforeAll` / `@AfterAll` | Runs once per class, on a `static` method (unless the class is `@TestInstance(Lifecycle.PER_CLASS)`) | Expensive setup that every test only reads |
+| `@ParameterizedTest` | One method runs once per row a source supplies | Several inputs share one assertion |
+| `@Nested` | An inner class groups tests and sees the outer instance's fields | Cases that share a precondition |
+| `@DisplayName` | Replaces the method or class name in reports | Reports that read as a specification |
+| `@Tag` | Labels a test or class for include or exclude | Splitting slow tests from fast ones |
+| `@TestFactory` | Returns `DynamicTest` instances built at run time | The set of cases is computed, not known up front |
+
+## `@Test` and a fresh instance
+
+Jupiter creates a new instance of the class for every `@Test` method, so a field initialized inline never carries state from one test to the next, and no test depends on discovery order:
 
 ```java
+@DisplayName("FreightCostCalculator")
 class FreightCostCalculatorTest {
 
+    private final FreightCostCalculator calculator = new FreightCostCalculator();
+
     @Test
-    void chargesTheBaseRatePlusAPerKilogramFee() {
-        FreightCostCalculator calculator = new FreightCostCalculator();
+    @DisplayName("prices a standard shipment as base plus per-kilogram rate")
+    void pricesAStandardShipment() {
         Shipment shipment = new Shipment(3.5, CargoClass.STANDARD, "SEA", 10_000L);
 
-        Money cost = calculator.cost(shipment);
+        Money amount = calculator.cost(shipment);
 
-        assertThat(cost).isEqualTo(Money.ofCents(570));
+        assertThat(amount)
+                .isEqualTo(Money.ofCents(150L + Math.round(120L * 3.5)))
+                .isEqualTo(Money.ofCents(570L));
     }
 }
 ```
 
-A fresh instance per test method means fields initialized inline, or set
-in `@BeforeEach`, never leak state from one test to the next through a
-shared instance. No test method depends on another method having run
-first, or on the order Jupiter happens to discover them in.
+## Lifecycle
 
-## Lifecycle: `@BeforeEach`, `@AfterEach`, `@BeforeAll`, `@AfterAll`
-
-`@BeforeEach` runs before every `@Test` in the class; `@AfterEach` runs
-after every one, whether it passed or failed. Together they give a class
-of related tests a fixture that is rebuilt from scratch each time:
+`@BeforeEach` rebuilds the fixture before each test. `@AfterEach` runs after each one whether it passed or failed, which makes it the place for an invariant every test must leave intact. A check at the bottom of a test body is skipped when an earlier assertion fails:
 
 ```java
+@DisplayName("InMemoryRateLedger")
 class InMemoryRateLedgerTest {
 
-    private static final int CAPACITY = 5;
+    private static final int CAPACITY = 2;
+
     private InMemoryRateLedger ledger;
 
     @BeforeEach
     void setUp() {
+        // Fresh ledger before every test, so no test can see another
+        // test's bookings. A field assigned here, not in a constructor,
+        // is what lets every test method start from the same known state
+        // without hand-copying the same three lines into each one.
         ledger = new InMemoryRateLedger(CAPACITY);
     }
 
     @AfterEach
     void checkCapacityInvariantHeld() {
+        // A post-condition check that runs after every test in this class,
+        // independent of what that test itself asserted: this ledger must
+        // never hold more bookings than its declared capacity, whether the
+        // test above filled it, left it empty, or tried to overfill it.
         assertThat(ledger.recordedBookings()).hasSizeLessThanOrEqualTo(CAPACITY);
     }
 
     @Test
-    void startsWithFullCapacityAvailable() {
+    @DisplayName("reports full capacity remaining when empty")
+    void reportsFullCapacityWhenEmpty() {
         assertThat(ledger.capacityRemaining()).isEqualTo(CAPACITY);
     }
 }
 ```
 
-`@AfterEach` running regardless of pass or fail is what makes it the right
-place for a postcondition like the capacity check above: a test that tries
-to overfill the ledger and expects an exception still leaves the ledger in
-a state worth re-checking, and a check placed only at the bottom of each
-test body would be skipped on exactly the test where an earlier assertion
-already failed.
+Use `@BeforeAll` only for setup that is expensive and read-only for the whole class, such as loading a reference table from a file. A field any test mutates belongs in `@BeforeEach`, so one test's mutation can't reach the next. No example needs `@BeforeAll`; each fixture is cheap to rebuild.
 
-`@BeforeAll` and `@AfterAll` run once per test class instead of once per
-test, on static methods, for setup that is expensive and safe to share
-read-only across every test in the class:
-
-```java
-class CarrierRateTableTest {
-
-    private static CarrierRateTable rateTable;
-
-    @BeforeAll
-    static void loadReferenceRates() {
-        rateTable = CarrierRateTable.loadFromReferenceFile();
-    }
-
-    @Test
-    void groundRateForRegionalZoneMatchesThePublishedTariff() {
-        assertThat(rateTable.rateFor(Carrier.GROUND, DestinationZone.REGIONAL))
-                .isEqualTo(Money.ofCents(480));
-    }
-}
-```
-
-Reach for `@BeforeAll` only when the setup is read-only for the whole
-class and expensive enough to matter, loading a reference rate table from
-a file once instead of once per test. A field any test mutates belongs in
-`@BeforeEach` instead, so a mutation in one test cannot bleed into the
-next. `@BeforeAll`/`@AfterAll` methods must be `static` unless the class
-carries `@TestInstance(Lifecycle.PER_CLASS)`, which this book's examples
-do not use.
-
-## Assertions, `assertThrows`, and `assertAll`
-
-Jupiter's `Assertions` class covers the common checks directly, with
-AssertJ layered on top in this book's examples for anything that benefits
-from a fluent chain:
+## Assertions
 
 | Method | Checks |
 |---|---|
 | `assertEquals(expected, actual)` | equality |
 | `assertTrue(condition)` / `assertFalse(condition)` | a boolean condition |
 | `assertNotNull(value)` / `assertNull(value)` | nullity |
-| `assertThrows(type, executable)` | the call throws exactly `type`, and returns the caught exception |
-| `assertAll(executables...)` | every executable runs and reports, even if more than one fails |
+| `assertThrows(type, executable)` | the call throws `type` or a subtype, and returns the exception |
+| `assertAll(executables...)` | runs every executable and reports every failure together |
 
-`assertThrows` returns the exception it caught, so a second line can
-inspect the message without a separate try/catch:
-
-```java
-@Test
-void rejectsAShipmentOverTheInsurableLimit() {
-    ShipmentValidator validator = new ShipmentValidator();
-    Shipment shipment = new Shipment(5.0, CargoClass.STANDARD, "SEA", 10_000_000L);
-
-    InvalidShipmentException thrown =
-            assertThrows(InvalidShipmentException.class, () -> validator.validate(shipment));
-
-    assertThat(thrown.getMessage()).contains("insurable limit");
-}
-```
-
-`assertAll` groups independent checks on the same result so a failure in
-one does not hide a failure in another. A bare sequence of `assertEquals`
-calls stops reporting at the first failure; `assertAll` runs every
-supplied executable and reports every failure together:
+`assertThrows` returns what it caught, so the next line can check the message without a try/catch:
 
 ```java
 @Test
-void recordsEveryFieldOfTheBooking() {
-    BookingRecord booking = service.book(shipment);
+@DisplayName("rejects a null cargo class")
+void rejectsNullCargoClass() {
+    NullPointerException thrown = assertThrows(
+            NullPointerException.class, () -> new Shipment(3.5, null, "SEA", 10_000L));
 
-    assertAll(
-            () -> assertEquals("BK-0001", booking.bookingId()),
-            () -> assertEquals(CargoClass.STANDARD, booking.shipment().cargoClass()),
-            () -> assertEquals(Money.ofCents(570), booking.amount()));
+    assertThat(thrown.getMessage()).contains("cargoClass");
 }
 ```
 
-A regression that corrupts the booking ID while leaving the amount
-correct shows up as exactly one failing line inside the `assertAll`
-report, not a test that stops after the first problem and hides the
-second. This book's examples reach for AssertJ's `assertThat(...).extracting(...)`
-for the same multi-fact shape when the values come off one object; both
-express the same idea, and either is a better choice than an
-`assertTrue` wrapping several `&&`-joined conditions, which reports only
-`false` with no indication of which condition broke.
+A run of plain `assertEquals` calls stops at the first failure; `assertAll` reports all of them. AssertJ's `assertThat(...).extracting(...)` and chained assertions cover the same need for facts read off one object, and the examples use AssertJ for it. Either beats one `assertTrue` over several `&&` conditions, which reports only `false`.
 
-## `@ParameterizedTest`: one method, many rows
+## Parameterized tests
 
-A `@ParameterizedTest` method runs once per value or row a source
-supplies, instead of one `@Test` method per case. Four source annotations
-cover most shapes a test table needs.
+A `@ParameterizedTest` runs once per row, so a new case is a new row, never a copy of the method body. The `name` attribute puts the row's values in the report.
 
-`@ValueSource` supplies a short list of primitive values, each checked by
-the same assertion:
+| Source | Supplies | Example |
+|---|---|---|
+| `@ValueSource` | A list of literals of one type | Three non-positive weights |
+| `@EnumSource` | Every constant of an enum | Every `CargoClass` |
+| `@CsvSource` | Rows of several columns, converted to the parameter types | A zone and its legacy code |
+| `@MethodSource` | A `static` factory returning `Stream<Arguments>` | A `Shipment` and the expected reason |
+
+`@ValueSource` and `@EnumSource`, inside `@Nested` classes:
 
 ```java
-@ParameterizedTest(name = "rejects a weight of {0}kg")
-@ValueSource(doubles = {0.0, -1.0, -42.5})
-void rejectsNonPositiveWeight(double weightKg) {
-    ShipmentValidator validator = new ShipmentValidator();
-    Shipment shipment = new Shipment(weightKg, CargoClass.STANDARD, "SEA", 10_000L);
+@Nested
+@DisplayName("when the shipment is well-formed")
+class WhenWellFormed {
 
-    assertThrows(InvalidShipmentException.class, () -> validator.validate(shipment));
+    @ParameterizedTest(name = "validates a {0} shipment")
+    @EnumSource(CargoClass.class)
+    @DisplayName("accepts every cargo class at a moderate weight")
+    void validatesEveryCargoClass(CargoClass cargoClass) {
+        Shipment shipment = new Shipment(10.0, cargoClass, "SEA", 10_000L);
+
+        assertThatCode(() -> validator.validate(shipment)).doesNotThrowAnyException();
+    }
+}
+
+@Nested
+@DisplayName("when the shipment breaks a business rule")
+class WhenMalformed {
+
+    @ParameterizedTest(name = "rejects a weight of {0}kg")
+    @ValueSource(doubles = {0.0, -1.0, -42.5})
+    @DisplayName("rejects a non-positive weight")
+    void rejectsNonPositiveWeight(double weightKg) {
+        Shipment shipment = new Shipment(weightKg, CargoClass.STANDARD, "SEA", 10_000L);
+
+        assertThatThrownBy(() -> validator.validate(shipment))
+                .isInstanceOf(InvalidShipmentException.class)
+                .hasMessageContaining("weight must be positive");
+    }
 }
 ```
 
-`@EnumSource` runs the test once per constant of an enum, with no list of
-values to maintain by hand:
+`@EnumSource` grows with the enum: a fifth `CargoClass` constant adds a case with no edit to the method. A `@ValueSource` list doesn't.
+
+`@CsvSource` converts each column to the parameter type, including an enum constant from its name, so `"LOCAL"` arrives as `DestinationZone.LOCAL`:
 
 ```java
-@ParameterizedTest(name = "accepts a moderate {0} shipment")
-@EnumSource(CargoClass.class)
-void acceptsEveryCargoClassAtAModerateWeight(CargoClass cargoClass) {
-    ShipmentValidator validator = new ShipmentValidator();
-    Shipment shipment = new Shipment(10.0, cargoClass, "SEA", 10_000L);
-
-    assertDoesNotThrow(() -> validator.validate(shipment));
-}
-```
-
-Adding a fifth `CargoClass` constant later extends this test
-automatically. The same is not true of a `@ValueSource` list, which is
-exactly why the weight cases above enumerate values by hand and the
-cargo-class case does not.
-
-`@CsvSource` fits a row that needs more than one primitive column, read
-straight off a comma-separated line:
-
-```java
-@ParameterizedTest(name = "{0} at {1}kg costs {2} cents")
+@ParameterizedTest
 @CsvSource({
-    "LOCAL, 2.0, 400",
-    "REGIONAL, 2.0, 480",
-    "NATIONAL, 2.0, 650"
+    "LOCAL, 0",
+    "REGIONAL, 1",
+    "NATIONAL, 2",
+    "INTERNATIONAL, 3",
 })
-void groundRateMatchesTheZoneTariff(DestinationZone zone, double weightKg, long expectedCents) {
-    CarrierRateTable rateTable = CarrierRateTable.loadFromReferenceFile();
+void mapsEveryDestinationZoneToTheLegacyNumericCode(DestinationZone zone, int expectedZoneCode) {
+    when(legacyClient.rateCentsForParcel(1_000L, expectedZoneCode)).thenReturn(300L);
+    GlobalCourierGatewayAdapter adapter = new GlobalCourierGatewayAdapter(legacyClient);
+    Shipment shipment = new Shipment(1.0, zone, 0);
 
-    assertThat(rateTable.rateFor(Carrier.GROUND, zone).cents()).isEqualTo(expectedCents);
+    adapter.quote(shipment);
+
+    verify(legacyClient).rateCentsForParcel(1_000L, expectedZoneCode);
 }
 ```
 
-Jupiter converts each column to the matching parameter type automatically,
-including an enum constant from its name, so `DestinationZone zone` reads
-`"LOCAL"` as `DestinationZone.LOCAL` with no explicit conversion code.
-
-`@MethodSource` is the widest shape, for cases where each row needs more
-than primitives and a name, such as a whole `Shipment` and an expected
-reason:
+`@MethodSource` takes rows of any type. With `name = "{0}"`, the first argument names each case, so a failure reports "hazmat over the unescorted weight ceiling" instead of a row index. A test inside a `@Nested` class names a factory in the outer class by its fully qualified `Class#method` form:
 
 ```java
 @ParameterizedTest(name = "{0}")
-@MethodSource("invalidShipments")
+@MethodSource("com.patterncatalyst.designpatterns.ch07.booking.ShipmentValidatorTest#invalidShipments")
+@DisplayName("rejects each case with the matching reason")
 void rejectsWithExpectedReason(String caseName, Shipment shipment, String expectedReasonFragment) {
-    ShipmentValidator validator = new ShipmentValidator();
-
-    InvalidShipmentException thrown =
-            assertThrows(InvalidShipmentException.class, () -> validator.validate(shipment));
-
-    assertThat(thrown.getMessage()).contains(expectedReasonFragment);
+    assertThatThrownBy(() -> validator.validate(shipment))
+            .isInstanceOf(InvalidShipmentException.class)
+            .hasMessageContaining(expectedReasonFragment);
 }
 
 static Stream<Arguments> invalidShipments() {
     return Stream.of(
-            Arguments.of("declared value over the insurable limit",
-                    new Shipment(5.0, CargoClass.STANDARD, "SEA", 10_000_000L), "insurable limit"),
-            Arguments.of("hazmat over the unescorted weight ceiling",
-                    new Shipment(75.0, CargoClass.HAZMAT, "SEA", 10_000L), "freight approval"));
+            Arguments.of(
+                    "declared value over the insurable limit",
+                    new Shipment(5.0, CargoClass.STANDARD, "SEA", 10_000_000L),
+                    "insurable limit"),
+            Arguments.of(
+                    "hazmat over the unescorted weight ceiling",
+                    new Shipment(75.0, CargoClass.HAZMAT, "SEA", 10_000L),
+                    "freight approval"),
+            Arguments.of(
+                    "a negative declared value",
+                    new Shipment(5.0, CargoClass.STANDARD, "SEA", -500L),
+                    "declared value"));
 }
 ```
-
-The `{0}` in the `name` attribute names each case from its own first
-argument, so a failure reports "hazmat over the unescorted weight ceiling"
-directly, not an index a reader has to count rows to decode. The payoff
-every one of these four sources shares is the same: a fourth case is a
-fourth row, never a fourth copy of the assertion body.
 
 ## `@Nested` and `@DisplayName`
 
-`@Nested` groups related test methods inside an inner class, which turns
-a flat list of test names into a structure a report can show as a
-specification:
+A non-static inner class keeps a reference to its enclosing test instance, so `WhenWellFormed` and `WhenMalformed` above both use the outer `validator` field. `@DisplayName` on the classes and methods makes the report read as a sentence: "ShipmentValidator, when the shipment breaks a business rule, rejects a non-positive weight".
 
-```java
-class ShipmentValidatorTest {
+## `@Tag` and `@TestFactory`
 
-    private final ShipmentValidator validator = new ShipmentValidator();
+| Feature | Form | Use it when |
+|---|---|---|
+| `@Tag("slow")` on a class or method | Select with `mvn test -Dgroups=slow`, exclude with `-DexcludedGroups=slow` | A suite is large enough that running everything on every change stops being the right default |
+| `@TestFactory` returning `Stream<DynamicTest>` | Each `DynamicTest.dynamicTest(name, executable)` is one case | The cases depend on something computed at run time, such as entries read from a file |
 
-    @Nested
-    @DisplayName("when the shipment is well-formed")
-    class WhenWellFormed {
+The examples run untagged and use no `@TestFactory`: every input set is known up front, which is what `@ParameterizedTest` is for. A `@TestFactory` gives up the declarative source and the name template.
 
-        @Test
-        @DisplayName("accepts a standard shipment at a moderate weight")
-        void acceptsAStandardShipment() {
-            Shipment shipment = new Shipment(10.0, CargoClass.STANDARD, "SEA", 10_000L);
+## Running through Surefire
 
-            assertDoesNotThrow(() -> validator.validate(shipment));
-        }
-    }
+The aggregator imports the JUnit BOM, and Surefire runs the Jupiter engine during `mvn test`. It picks up classes under `src/test/java` whose names match its default patterns (the examples all end in `Test`) and prints a count for each class and a total for the module.
 
-    @Nested
-    @DisplayName("when the shipment breaks a business rule")
-    class WhenMalformed {
-
-        @Test
-        @DisplayName("rejects a non-positive weight")
-        void rejectsNonPositiveWeight() {
-            Shipment shipment = new Shipment(0.0, CargoClass.STANDARD, "SEA", 10_000L);
-
-            assertThrows(InvalidShipmentException.class, () -> validator.validate(shipment));
-        }
-    }
-}
-```
-
-A non-static inner class carries an implicit reference to its enclosing
-test instance, which is how `WhenWellFormed` and `WhenMalformed` both see
-the same `validator` field without redeclaring it. `@DisplayName` on the
-nested classes and the methods inside them turns a test run's output into
-"ShipmentValidator, when the shipment breaks a business rule, rejects a
-non-positive weight," a sentence about the component's contract rather
-than a Java identifier a reader reverse-engineers into English.
-
-## `@Tag`: grouping tests across classes
-
-`@Tag` marks a test or a whole class with a label Surefire can include or
-exclude by name, independent of which class or package the test lives in:
-
-```java
-@Tag("slow")
-class CarrierRateTableIntegrationTest {
-
-    @Test
-    void loadsTheFullTariffTableFromTheReferenceFile() {
-        CarrierRateTable rateTable = CarrierRateTable.loadFromReferenceFile();
-
-        assertThat(rateTable.rateFor(Carrier.FREIGHT_ZONE, DestinationZone.INTERNATIONAL))
-                .isNotNull();
-    }
-}
-```
-
-A tag groups tests by a concern the class hierarchy does not already
-express, such as slow against fast, so a build can run a focused subset
-(`mvn test -Dgroups=slow`) without touching the test source. This book's suites run untagged by default; a tag is worth adding
-only once a suite is large enough that running every test on every change
-stops being the right default.
-
-## Dynamic tests: `@TestFactory`
-
-A `@TestFactory` method returns a collection of `DynamicTest` instances
-built at runtime, for cases where the set of tests is itself computed, not
-known until the method runs:
-
-```java
-@TestFactory
-Stream<DynamicTest> everyCarrierQuotesAPositiveAmount() {
-    Shipment shipment = new Shipment(2.0, CargoClass.STANDARD, "SEA", 5_000L);
-
-    return Stream.of(Carrier.values())
-            .map(carrier -> DynamicTest.dynamicTest(
-                    "quote from " + carrier,
-                    () -> assertThat(carrier.quote(shipment).amount().cents()).isPositive()));
-}
-```
-
-`@ParameterizedTest` is the right tool whenever the input values are known
-up front, as a `@ValueSource` list, an enum, or a `@MethodSource` table.
-`@TestFactory` only earns its extra ceremony, no declarative source
-annotation, no automatic name templating, when the test count or the test
-bodies themselves depend on something computed at runtime, such as a
-carrier list read from a configuration file a `@TestFactory` method loads
-before generating one `DynamicTest` per entry.
-
-## Running through Maven Surefire
-
-Every example's `pom.xml` depends on the JUnit Jupiter BOM, and the Maven
-Surefire plugin runs the Jupiter engine during `mvn test`:
-
-```sh
-mvn -f examples/pom.xml test
-```
-
-Surefire discovers every class under `src/test/java` matching its default
-naming convention (`*Test`, in this book's examples), hands each one to
-the Jupiter engine, and reports one line per test method, not one line per
-class, so a failure in `ShipmentValidatorTest.rejectsNonPositiveWeight`
-is distinguishable in the console output from every other test in the
-same class. An example is also runnable standalone from its own
-directory with the same command run without the `-f` flag, from inside
-`examples/<NN-pattern>`.
+| Run | Command |
+|---|---|
+| Every module | `mvn -f examples/pom.xml test` |
+| One example | `cd examples/07-testing-with-junit && mvn test` |
+| One class | `mvn test -Dtest=ShipmentValidatorTest` |
+| One tag | `mvn test -Dgroups=slow` |
 
 ## For deeper coverage
 
 - The official [JUnit 5 documentation](https://junit.org/junit5/docs/current/user-guide/):
-  the full lifecycle, extension model, and parameterized-test source
-  vocabulary beyond the handful covered here.
+  the full lifecycle, extension model, and parameterized-test sources.
 - Gerard Meszaros, [*xUnit Test Patterns: Refactoring Test Code*](https://www.informit.com/store/xunit-test-patterns-refactoring-test-code-9780132800051)
-  (Addison-Wesley): the four-phase test structure this book's test methods
-  follow, setup, exercise, verify, and teardown, even where `@BeforeEach`
-  and `@AfterEach` carry the setup and teardown phases implicitly.
-- The full reading list behind this book's opinions lives on the
-  [bibliography page]({{ '/bibliography/' | relative_url }}); each
-  citation there is a pointer to the full book, not a substitute for
-  reading it.
+  (Addison-Wesley): the four-phase test (setup, exercise, verify, teardown)
+  that every test method follows, with `@BeforeEach` and `@AfterEach`
+  carrying setup and teardown when a class shares them.
+- The full reading list is on the
+  [bibliography page]({{ '/bibliography/' | relative_url }}).

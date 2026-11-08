@@ -5,32 +5,26 @@ layout: tutorial
 sectionid: docs
 part: appendices
 appendix: "E"
-description: "A completeness ledger for the whole book: every GoF pattern, SOLID principle, and Java idiom mapped to the force that justifies reaching for it, each linked to the chapter that builds it. Scan it to find the tool for a force in front of you, or to confirm the catalogue is complete."
+description: "Every GoF pattern, SOLID principle, and Java idiom mapped to the force that justifies it, each linked to the chapter that builds it. Scan it to find the tool for the force in front of you."
 ---
+
+## Learning objectives
+
+By the end of this appendix you can:
+
+- Find the pattern, principle or idiom that answers a force in the code in front of you.
+- Tell when no listed force is present, and the pattern would be over-engineering.
+- Jump to the chapter that builds each one against a runnable example.
 
 ## How to read this ledger
 
-A pattern is a response to a force, a pressure in the design that the plain,
-direct solution handles badly. This book teaches patterns in that order:
-recognize the force, then name the pattern that answers it. This appendix
-inverts the book so you can scan from the force back to the tool.
+A force is a pressure in the design that the plain, direct solution handles badly. A pattern is a response to one. Each row names a pattern, principle or idiom, the force that justifies it, and the chapter that builds it. Read from the middle column: if none of its forces is present in your code, applying the pattern isn't neutral, it's the over-engineering described in [Anti-patterns and pattern misuse]({{ '/docs/27-anti-patterns/' | relative_url }}). Match the mechanism to the force you have, not to the one a textbook example implies.
 
-Each row names a pattern, principle, or idiom, states the force that
-justifies reaching for it, and links the chapter that builds it against a
-runnable example. The right-hand column is the test: if no force in that
-column is present in the code in front of you, applying the pattern is not a
-neutral choice, it is the over-engineering the anti-patterns chapter warns
-about. Match the mechanism to the force actually present, not to the force a
-textbook example implies.
-
-The ledger covers all twenty-three Gang of Four patterns, the five SOLID
-principles, and the Java idioms the book treats as first-class patterns in
-their own right.
+The ledger covers all 23 Gang of Four patterns, the five SOLID principles, and the Java idioms that work as patterns in their own right.
 
 ## Principles (SOLID)
 
-The principles are not patterns; they are the forces-and-tradeoffs
-vocabulary the patterns are judged against.
+The principles aren't patterns. They're the vocabulary of forces and trade-offs that patterns are judged against.
 
 | Principle | Reach for it when | Chapter |
 |-----------|-------------------|---------|
@@ -42,7 +36,7 @@ vocabulary the patterns are judged against.
 
 ## Foundational Java idioms
 
-The substrate the rest of the catalogue is built on.
+The rest of the catalog builds on these.
 
 | Idiom | Reach for it when | Chapter |
 |-------|-------------------|---------|
@@ -90,11 +84,9 @@ The substrate the rest of the catalogue is built on.
 | Memento | An object's state must be captured and restored without exposing its internals | [Visitor, Memento, and Interpreter]({{ '/docs/20-visitor-memento-interpreter/' | relative_url }}) |
 | Interpreter | A small, recurring grammar is best expressed as types that evaluate themselves | [Visitor, Memento, and Interpreter]({{ '/docs/20-visitor-memento-interpreter/' | relative_url }}) |
 
-## Idiomatic Java 25 expressions
+## Idiomatic modern Java
 
-Patterns that are specific to modern Java rather than general
-object-oriented design, several of them retiring a hand-written GoF
-implementation outright.
+These are specific to modern Java rather than to object-oriented design in general. Several retire a hand-written GoF implementation.
 
 | Idiom | Reach for it when | Chapter |
 |-------|-------------------|---------|
@@ -133,6 +125,6 @@ implementation outright.
 
 ## For deeper coverage
 
-- Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480/9780321700698) (Addison-Wesley): the canonical catalogue this ledger indexes, where each pattern's intent, structure, and consequences are set out in full.
+- Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480/9780321700698) (Addison-Wesley): the catalog this ledger indexes, where each pattern's intent, structure, and consequences are set out in full.
 - Robert C. Martin, [*Agile Software Development: Principles, Patterns, and Practices*](https://www.pearson.com/en-gb/subject-catalog/p/agile-software-development-principles-patterns-and-practices-pearson-new-international-edition/P200000004932/9781292038360) (Prentice Hall): the SOLID principles the ledger's principle rows condense.
 - Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991) (Addison-Wesley): the source for the static-factory, enum-singleton, and holder-idiom techniques the foundational and idiomatic-Java rows apply.

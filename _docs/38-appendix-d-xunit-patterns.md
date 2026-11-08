@@ -5,34 +5,34 @@ layout: tutorial
 sectionid: docs
 part: appendices
 appendix: "D"
-description: "Gerard Meszaros's xUnit test patterns, the four-phase test, the test-double taxonomy, fixture strategies, and the common test smells, mapped onto this book's JUnit 5, Mockito, and AssertJ stack."
+description: "Gerard Meszaros's xUnit test patterns, the four-phase test, the test-double taxonomy, fixture strategies, and the common test smells, mapped onto JUnit 5, Mockito, and AssertJ."
 duration: "20 min"
 ---
 
-## What this appendix covers
+## Learning objectives
 
-Gerard Meszaros's *xUnit Test Patterns* gave the testing world a shared
-vocabulary: four-phase test, test double, fixture, test smell. Every test
-suite in this book already uses that vocabulary, just without naming it.
-This appendix names it, and maps each term onto the JUnit 5, Mockito, and
-AssertJ stack the whole book builds on, against the same collaborators
-already seen elsewhere: a shipment booking service, a rate ledger, a
-carrier gateway, a clock.
+By the end of this appendix you can:
+
+- Name the four phases of a test and say where JUnit 5 puts each one.
+- Tell a dummy, stub, spy, mock and fake apart, and build each with JUnit 5, Mockito or plain Java.
+- Choose a fresh, shared or persistent fixture and say what each risks.
+- Recognize five common test smells and the fix for each.
+- Write the verify phase with AssertJ chains and soft assertions.
+
+## Why this matters
+
+Gerard Meszaros's *xUnit Test Patterns* named the parts of a test: four-phase test, test double, fixture, test smell. With the names, a review comment can say "that's a shared fixture" instead of a paragraph. The tables and listings below map each name onto JUnit 5, Mockito and AssertJ, using the shipment booking service, rate ledger, carrier gateway and clock from the examples.
 
 ## The four-phase test
 
-Meszaros splits every test into four phases, whether the test author labels
-them or not:
+| Phase | Also called | Does | In JUnit 5 |
+|---|---|---|---|
+| Setup | arrange | Builds the object under test and its collaborators | Field initializers and `@BeforeEach` |
+| Exercise | act | Calls the one behavior under test | The `@Test` body |
+| Verify | assert | Checks the outcome | The `@Test` body: AssertJ, `verify` |
+| Teardown | | Releases what setup acquired, resets what's shared | `@AfterEach`, which runs pass or fail |
 
-1. **Setup** (arrange): build the object under test and its collaborators.
-2. **Exercise** (act): call the one behavior under test.
-3. **Verify** (assert): check the outcome.
-4. **Teardown**: release anything setup acquired, reset anything shared.
-
-JUnit 5's lifecycle annotations pull phases one and four out of the test
-body entirely. `@BeforeEach` runs setup before every `@Test`; `@AfterEach`
-runs teardown after every `@Test`, pass or fail. A `@Test` method then holds
-only exercise and verify:
+With setup and teardown in lifecycle methods, a `@Test` holds only exercise and verify:
 
 ```java
 @ExtendWith(MockitoExtension.class)
@@ -66,35 +66,23 @@ class ShipmentBookingServiceTest {
 }
 ```
 
-The `lenient().when(...)` line inside `@BeforeEach` is still setup, even
-though it reads like a declaration about the future: it tells the mock what
-to answer when asked, before any call happens. The field declarations above
-`@BeforeEach`, `validator`, `costCalculator`, and `idGenerator`, are setup
-too, re-created fresh for every test because JUnit 5 constructs a new test
-instance per `@Test` method by default (the `PER_METHOD` lifecycle). This
-example carries no explicit `@AfterEach`, because Mockito's own extension
-resets each `@Mock` field between tests; a plain collaborator, a counter or
-a file handle, is where teardown earns an explicit method.
+Stubbing in `@BeforeEach` is setup: it tells the mock what to answer before any call. The fields are setup too, rebuilt for every test because JUnit 5 creates a new instance per `@Test` method (the `PER_METHOD` lifecycle). No `@AfterEach` is needed, because `MockitoExtension` creates new mocks for each test. Teardown earns an explicit method when a test holds a counter, a file handle or other shared state.
 
 ## The test-double taxonomy
 
-Meszaros names five kinds of test double. This book's stack has a concrete
-answer for each. Mockito's own `spy()` method is not the same concept as
-Meszaros's Spy pattern, even though they share a word.
+Meszaros names five doubles. Mockito's `spy()` isn't Meszaros's Spy, despite the shared word.
 
 | Double | What it does | In this stack |
 |---|---|---|
-| **Dummy** | A placeholder that satisfies a signature but is never exercised | A `BookingIdGenerator` lambda passed into `ShipmentBookingService` for a test whose shipment fails validation before id generation ever runs |
-| **Stub** | Returns canned values on request, no verification of how it was called | `Clock.fixed(overdueAt, zone)`, pinning the instant `ShipmentEscalationService` reads when it checks a delivery deadline |
-| **Spy** | Records what was called, inspected after the fact with no expectation declared up front | A hand-written `RecordingCarrierGateway` that appends every `notifyCarrier` call to a list a test reads after exercise, no `verify` involved |
-| **Mock** | Verifies an expected interaction as part of the test, failing if it was not met | A Mockito `@Mock RateLedger`, checked with `verify(ledger).record(...)` |
-| **Fake** | A working, lightweight implementation that behaves correctly but is unsuited to production | A hand-written `FakeCarrierGateway` that records and can answer queries about what it "sent," entirely in memory, with no SMTP connection |
+| **Dummy** | Fills a parameter and is never used | The `BookingIdGenerator` lambda in a test whose shipment fails validation before an id is generated |
+| **Stub** | Returns canned answers; nobody checks how it was called | `Clock.fixed(overdueAt, zone)`, pinning the instant `ShipmentEscalationService` reads |
+| **Spy** | Records calls to inspect afterward, with no expectation declared up front | A hand-written `RecordingCarrierGateway` that appends every `notifyCarrier` call to a list |
+| **Mock** | Fails if the expected interaction didn't happen | A Mockito `@Mock RateLedger`, checked with `verify(ledger).record(...)` |
+| **Fake** | A working, lightweight implementation unfit for production | A `FakeCarrierGateway` that keeps what it "sent" in memory, with no SMTP connection |
 
-**Dummy.** `ShipmentBookingService`'s constructor takes a `BookingIdGenerator`
-along with a validator, a cost calculator, and a ledger. The test that proves
-a malformed shipment never reaches the ledger hands the service the same
-`() -> "BK-0001"` lambda every other test in the class uses, but that lambda
-is never consulted in this one case:
+### Dummy
+
+The same `() -> "BK-0001"` lambda is a real collaborator in every accepted-booking test and a dummy here, because `ShipmentValidator.validate` throws before `book` calls `idGenerator.nextId()`. Being a dummy depends on what one test exercises, not on the object:
 
 ```java
 @Test
@@ -107,14 +95,9 @@ void neverTouchesTheLedger() {
 }
 ```
 
-`ShipmentValidator.validate` throws before `book` ever calls
-`idGenerator.nextId()`, which makes `idGenerator` a dummy for this one test
-even though the identical object is a real, consulted collaborator in every
-accepted-booking test in the same class. Dummy status is a property of what
-one test exercises, not a property of the object itself.
+### Stub
 
-**Stub.** A `Clock` stub pins "now" to one fixed instant so a delivery-window
-check becomes deterministic:
+A `Clock` stub pins "now" to one instant, so a delivery-window check is deterministic. No `verify` follows; it doesn't matter how often `escalate` reads the clock, only what it answers:
 
 ```java
 Instant overdueAt = Instant.parse("2026-01-10T12:00:00Z");
@@ -122,13 +105,9 @@ ShipmentEscalationService service =
         new ShipmentEscalationService(Clock.fixed(overdueAt, ZoneOffset.UTC), gateway);
 ```
 
-No `verify` call follows that construction. The test does not care how many
-times `clock.instant()` is called inside `escalate`, only what each call
-answers.
+### Spy
 
-**Spy.** A hand-written `RecordingCarrierGateway` records every notification
-instead of returning a scripted answer or declaring an expectation before
-the fact:
+A hand-written Spy records each notification, read back after exercising `escalate`:
 
 ```java
 final class RecordingCarrierGateway implements CarrierGateway {
@@ -145,23 +124,16 @@ final class RecordingCarrierGateway implements CarrierGateway {
 }
 ```
 
-The test exercises `escalate`, then asserts against `notified()` directly:
-
 ```java
 assertThat(recordingGateway.notified())
         .anyMatch(entry -> entry.startsWith("SHM-2101"));
 ```
 
-This is the exact pattern Meszaros calls a Spy, and it is hand-written
-rather than built with Mockito's `spy()` method. Mockito's `spy()` wraps a
-real object and lets specific methods be overridden while every other
-method keeps the real object's behavior, which answers a different
-question than this pattern does; calling both of them a "spy" is a
-vocabulary collision between the library and the pattern name, not a sign
-that they solve the same problem.
+Mockito's `spy()` answers a different question: it wraps a real object and overrides chosen methods while the rest keep their real behavior.
 
-**Mock.** Mockito's `@Mock` plus `verify` makes the interaction itself the
-assertion:
+### Mock
+
+`@Mock` plus `verify` makes the interaction the assertion. Verification fails if `record` was never called. A stub is judged by what it returns; a mock by whether it was called as expected:
 
 ```java
 @Mock
@@ -171,14 +143,9 @@ private RateLedger ledger;
 verify(ledger).record(captor.capture());
 ```
 
-The test fails if `record` was never called at all, which is what separates
-a Mock from a Stub: a Stub is judged only by what it returns, a Mock is
-judged by whether it was called the way the test expected.
+### Fake
 
-**Fake.** A `FakeCarrierGateway` is a working implementation, not a script:
-it keeps a real, queryable list of what was sent, and correctly reflects
-every call made to it, but it is never wired into production because it has
-no SMTP connection behind it:
+A Fake works: it keeps a queryable record of every call and answers questions about it. It's never wired into production, because nothing real sits behind it:
 
 ```java
 final class FakeCarrierGateway implements CarrierGateway {
@@ -195,15 +162,11 @@ final class FakeCarrierGateway implements CarrierGateway {
 }
 ```
 
-A Fake earns its cost exactly when a Stub's "return one canned value" is too
-thin to drive the logic under test, for example an end-to-end escalation
-test that books, escalates, and then queries what was sent for a specific
-shipment, something a one-shot stub answer cannot model.
+Use a fake when one canned answer is too thin to drive the logic, such as an end-to-end test that books, escalates and then asks what was sent for one shipment.
 
-Mockito's `spy()` sits closest to a Fake-plus-Mock hybrid in practice: a
-real `InMemoryRateLedger` wrapped with `spy()`, then forced on exactly one
-method, keeps every other method's real behavior while still letting
-`verify` check an interaction on the wrapped object:
+### Mockito's `spy()` in the taxonomy
+
+A real `InMemoryRateLedger` under `spy()`, forced on one method, keeps its real behavior everywhere else and still accepts `verify`:
 
 ```java
 InMemoryRateLedger realLedger = new InMemoryRateLedger(1);
@@ -215,81 +178,34 @@ verify(ledgerSpy, never()).record(any());
 assertThat(realLedger.recordedBookings()).isEmpty();
 ```
 
-Neither `realLedger` nor `ledgerSpy` is a Meszaros Spy here. `realLedger` is
-the real collaborator under a forced edge case, and the `verify` call makes
-the check a Mock-style interaction assertion, not a pattern this book treats
-as a Fake plus a Spy and leaves at that.
+Neither object is a Meszaros Spy. `realLedger` is the real collaborator under a forced edge case, and `verify` makes the check a mock-style interaction assertion.
 
 ## Fixture strategies
 
-**Fresh fixture.** JUnit 5's default lifecycle, `PER_METHOD`, constructs a
-new test instance for every single `@Test`, so field initializers and
-`@BeforeEach` both run fresh every time. `ShipmentBookingServiceTest` above
-is a fresh fixture twice over: the test instance itself is new per method,
-and `@BeforeEach` additionally rebuilds `service` from scratch, so nothing
-one test does to `ledger` is visible to any other test in the class.
+| Strategy | How JUnit 5 builds it | Risk |
+|---|---|---|
+| **Fresh** | `PER_METHOD` lifecycle: a new instance per `@Test`, with field initializers and `@BeforeEach` run each time | None from shared state; the cost is rebuilding it |
+| **Shared** | `@BeforeAll`, once per class; `static`, or non-static with `@TestInstance(TestInstance.Lifecycle.PER_CLASS)` | A mutable shared object leaks state between tests, which then depend on run order |
+| **Transient** | Created in setup and discarded afterward, like an `InMemoryRateLedger` built in `@BeforeEach` | None |
+| **Persistent** | Survives across tests by design | Each test sees what the last one left; needs a reset in `@BeforeEach` and `@AfterEach` |
 
-**Shared (suite) fixture.** `@BeforeAll` runs once for an entire test class
-rather than once per test, but a non-static `@BeforeAll` method needs
-`@TestInstance(Lifecycle.PER_CLASS)` to opt the class out of the default
-per-method instantiation:
+`ShipmentBookingServiceTest` is fresh twice over: the instance is new per method, and `@BeforeEach` rebuilds `service`, so nothing one test does to `ledger` reaches another.
 
-```java
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class FreightCostCalculatorTest {
-
-    private CarrierRateCard rateCard;
-
-    @BeforeAll
-    void loadRateCardOnce() {
-        rateCard = CarrierRateCard.loadFromClasspath("rates/standard.csv");
-    }
-}
-```
-
-A shared fixture is tempting when a collaborator is expensive to build, a
-rate card parsed from a file being the obvious candidate, but it
-reintroduces the exact problem fresh fixtures exist to avoid the moment that
-collaborator is mutable: state one test leaves behind becomes visible to the
-next test in the same class, and the class's tests stop being safe to run in
-a different order. Reach for `@BeforeAll` only when the collaborator is
-read-only for the whole class's lifetime, the way a rate card loaded once
-from a fixed table is.
-
-**Transient vs. persistent fixture.** A transient fixture starts empty and
-is discarded after the test, the default for an `InMemoryRateLedger`
-constructed fresh inside `@BeforeEach`. A persistent fixture is carried
-across tests by design, which is a real hazard whenever a collaborator holds
-process-wide state. `SequentialBookingIdGenerator` wraps an `AtomicLong`
-counter; constructing a fresh instance per test, the way `@BeforeEach`
-normally would, keeps that counter transient. Sharing one instance across a
-class's tests, through a `@BeforeAll`-built field, makes the counter
-persistent instead, and every test after the first then sees ids counting
-up from wherever the previous test left off. A persistent fixture needs an
-explicit reset step for exactly this reason, typically a package-private
-reset hook the fixture calls in both `@BeforeEach` and `@AfterEach`, not
-only one of the two: a failed assertion partway through a test still has to
-leave the shared counter in a known state for the next test, and `@AfterEach`
-is the one lifecycle method JUnit 5 guarantees runs even when the test body
-throws.
+Share a fixture only when it's expensive and read-only for the whole class, such as a rate table loaded once from a file. `SequentialBookingIdGenerator` shows the persistent-fixture hazard. It wraps an `AtomicLong`, so one instance shared across a class makes ids count on from wherever the previous test stopped. A persistent fixture needs a reset in both `@BeforeEach` and `@AfterEach`: `@AfterEach` runs even when the test body throws, so a failed test still leaves a known state.
 
 ## Test smells
 
-Meszaros catalogs dozens of test smells. These five show up most often in a
-suite built on this stack, each with the fix this book's own examples apply.
-
 | Smell | Symptom | Fix in this stack |
 |---|---|---|
-| **Fragile test** | A refactor that changes no behavior still breaks tests | Depend on the collaborator's interface (`RateLedger`, `CarrierGateway`, `Clock`), never on a concrete implementation's internals |
-| **Erratic (flaky) test** | Passes or fails depending on run order or wall-clock timing | Replace `Instant.now()` with an injected `Clock`; keep process-wide state like a sequential id counter transient instead of shared across tests |
-| **Obscure test** | A reader cannot tell what behavior a failure indicates | One behavior per `@Test`, a `@DisplayName` naming that behavior, `@Nested` classes grouping related scenarios (accepted, validation failure, at capacity) |
-| **Conditional test logic** | A test body branches on `if`/`else` or loops over cases | `@ParameterizedTest` with `@MethodSource` for a table of shipments and expected outcomes, instead of a loop inside one test that can silently skip a case |
-| **Slow test** | A suite that should run in milliseconds takes seconds because it touches a real store or a real network endpoint | A `Fake` in-memory collaborator, or a `spy()`-wrapped real one with the expensive call forced, in place of a real connection; tag slow, I/O-bound tests with `@Tag("integration")` and keep them out of the default `mvn test` run |
+| **Fragile test** | A refactor that changes no behavior breaks tests | Depend on the collaborator's interface (`RateLedger`, `CarrierGateway`, `Clock`), never a concrete class's internals |
+| **Erratic (flaky) test** | Result depends on run order or the wall clock | Inject a `Clock` instead of calling `Instant.now()`; keep counters like a sequential id generator transient |
+| **Obscure test** | A failure doesn't say which behavior broke | One behavior per `@Test`, a `@DisplayName` naming it, `@Nested` classes for scenarios (accepted, validation failure, at capacity) |
+| **Conditional test logic** | The method body branches or loops over cases | `@ParameterizedTest` with `@MethodSource`, so no case is skipped silently |
+| **Slow test** | A run that should take milliseconds touches a real store or network | An in-memory fake, or a spied real object with the expensive call forced; tag I/O-bound tests `@Tag("integration")` and exclude them from the default run |
 
 ## AssertJ and the verify phase
 
-AssertJ's fluent chains are where the verify phase reads as a sentence
-instead of a scattered set of equality checks:
+An AssertJ chain reads as one sentence. On failure, `extracting` names which value diverged and what it held:
 
 ```java
 assertThat(bookingRecord)
@@ -297,25 +213,7 @@ assertThat(bookingRecord)
         .containsExactly("BK-0001", Money.ofCents(570L), CargoClass.STANDARD);
 ```
 
-A failure here names which of the three extracted values diverged and what
-it held instead, which is the entire argument for AssertJ over a bare
-`assertEquals` call per field.
-
-A guard assertion still exists in this stack, just expressed through
-AssertJ's `Optional` support rather than a raw `assertTrue` before a
-dereference:
-
-```java
-assertThat(result).isPresent();
-assertThat(result.get().amount()).isEqualTo(Money.ofCents(570L));
-```
-
-JUnit 5's and AssertJ's ordinary assertions both behave like a fail-fast
-check: the first one that fails stops the test method immediately, so a
-test checking three unrelated facts in sequence only ever reports the
-first failure. AssertJ's `SoftAssertions` is the tool for the opposite
-behavior, collecting every failure in a block and reporting all of them
-together once the block ends:
+Assertions fail fast: the first failure stops the method, and later facts go unchecked. `assertSoftly` collects every failure in the block and reports them together:
 
 ```java
 assertSoftly(softly -> {
@@ -324,28 +222,23 @@ assertSoftly(softly -> {
 });
 ```
 
-A regression that breaks both the amount and the cargo class at once is
-reported as two failures, not one failure hiding a second behind it; reach
-for `assertSoftly` specifically when a single exercise phase produces
-several independent facts worth checking, not as a default replacement for
-an ordinary `assertThat` chain.
+A regression that breaks the amount and the cargo class reports two failures, not one hiding the other. Use `assertSoftly` when one exercise produces several independent facts, not as the default.
+
+A guard assertion, such as `isPresent()` on an `Optional` before reading its value, is still a separate first assertion: it turns a `NoSuchElementException` into a failure that says what was missing.
 
 ## For deeper coverage
 
 - Gerard Meszaros, [*xUnit Test Patterns: Refactoring Test Code*](https://www.informit.com/store/xunit-test-patterns-refactoring-test-code-9780132800051)
-  (Addison-Wesley): the source for every pattern name in this appendix, the
+  (Addison-Wesley): the source of every pattern name here, the
   four-phase test, the double taxonomy, fixture strategy, and the test
   smell catalog.
 - The official [JUnit 5 documentation](https://junit.org/junit5/docs/current/user-guide/):
-  the full lifecycle and extension model this appendix's fixture section
-  draws `@BeforeEach`, `@AfterEach`, `@BeforeAll`, and `@TestInstance` from.
+  the lifecycle and extension model behind `@BeforeEach`, `@AfterEach`,
+  `@BeforeAll`, and `@TestInstance`.
 - The official [Mockito documentation](https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html):
-  the complete mock, spy, and verification API, including the `spy()`
-  method whose naming collision with Meszaros's Spy pattern this appendix
-  calls out directly.
+  the mock, spy, and verification API, including the `spy()` method whose
+  name collides with Meszaros's Spy.
 - The official [AssertJ documentation](https://assertj.github.io/doc/):
-  the fluent assertion vocabulary, including `SoftAssertions`, behind this
-  appendix's verify-phase section.
-- The full reading list behind this book's opinions lives on the
-  [bibliography page]({{ '/bibliography/' | relative_url }}); each citation
-  there is a pointer to the full book, not a substitute for reading it.
+  the fluent assertion vocabulary, including `SoftAssertions`.
+- The full reading list is on the
+  [bibliography page]({{ '/bibliography/' | relative_url }}).
