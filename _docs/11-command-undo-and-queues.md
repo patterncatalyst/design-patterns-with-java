@@ -334,7 +334,7 @@ The batch receives 25 `GASKET-7` into `B2`, transfers 10 to `PICK-FACE-1` and re
 
 - **Keep the redo branch.** Delete `undone.clear()` from `CommandHistory.execute()`. The check that a new command clears the redo branch fails.
 - **Snapshot too early.** Move the `priorQuantity` read in `RecountStockCommand` from `execute()` to the constructor. The execute-time snapshot check fails.
-- **Make the queue LIFO.** Change `pending.addLast` to `pending.addFirst` in `CommandQueue.enqueue()`. The undoable-batch check fails, and the demo's batch leaves 33 in `B2` instead of 18.
+- **Make the queue LIFO.** Change `pending.addLast` to `pending.addFirst` in `CommandQueue.enqueue()`. The submission-order and undoable-batch checks fail, and the demo's batch leaves 33 in `B2` instead of 18.
 
 ## What you can do now
 

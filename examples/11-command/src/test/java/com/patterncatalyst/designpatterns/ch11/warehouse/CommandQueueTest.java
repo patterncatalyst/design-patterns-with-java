@@ -21,16 +21,16 @@ class CommandQueueTest {
     void processAllRunsCommandsInSubmissionOrderNotReverseOrder() {
         WarehouseLedger ledger = new WarehouseLedger();
         CommandQueue queue = new CommandQueue();
-        // Submitted in an order that only produces a sensible final state if
-        // processed FIFO: receive 25 into B2 before 10 of it transfers out.
-        // Running the transfer first would leave B2 short.
+        // A recount sets an absolute quantity, so it doesn't commute with the
+        // commands around it: FIFO leaves 10 in B2, LIFO would leave 45.
         queue.enqueue(new AllocateStockCommand(ledger, "B2", "GASKET-7", 25));
+        queue.enqueue(new RecountStockCommand(ledger, "B2", "GASKET-7", 20));
         queue.enqueue(new TransferStockCommand(ledger, "B2", "PICK-FACE-1", "GASKET-7", 10));
 
         int processed = queue.processAll();
 
-        assertThat(processed).isEqualTo(2);
-        assertThat(ledger.quantityOf("B2", "GASKET-7")).isEqualTo(15);
+        assertThat(processed).isEqualTo(3);
+        assertThat(ledger.quantityOf("B2", "GASKET-7")).isEqualTo(10);
         assertThat(ledger.quantityOf("PICK-FACE-1", "GASKET-7")).isEqualTo(10);
     }
 
