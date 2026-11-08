@@ -98,10 +98,19 @@ Every pattern chapter additionally ends with a **"when NOT to use it"**
 section and carries exactly one **AI sidebar** box — no more than one per
 chapter.
 
-- Prose target: **2,000-2,500 words** of body prose (excluding code and
-  diagrams). 2,000 is a hard floor; 2,500 is a target, not a ceiling — more
-  is fine if it is value-driven (another diagram, another worked example),
-  never padding for its own sake.
+- **Write like the EIP-Camel book** (`~/Dev/enterprise-integration-patterns-with-camel`), owner
+  decision 2026-11-08: get to the point. About 2,000 words a chapter is the goal and 2,500 the
+  most; there is no floor, and never pad. At least one diagram. Chapters never name tests and never
+  narrate what a test or a code block does; the example holds the tests. No self-reference: no
+  "the book", "this chapter", "the suite", "the test", "the example shows". Pattern chapters use one
+  `## Pattern: <Name>` H2 per pattern with `### The problem`, `### The solution` (a bold
+  one-sentence definition) and `### How Java models it`, then topic H3s. JDK and tool versions are
+  stated only in prerequisites, Appendix A and the README; elsewhere keep a version only as a
+  feature fact ("scoped values, final in JDK 25").
+- **AI sidebar** is `<blockquote class="ai-sidebar" markdown="1">`: `**Specifying <thing>.**`, one
+  sentence on what a vague request leaves open, a quoted prompt the reader can paste (naming the
+  example's own types and the chapter's decisions), then one line on how to check the reply
+  (the `mvn` test command or what to look for). Never advice about what assistants tend to do.
 - Voice: no em-dash (zero tolerance), no rule-of-three, no contrived AI
   phrasing, no confessional register ("to be honest", "admittedly", "let's
   be real"). Run `lgtm-professional-voice` before calling a chapter done.
