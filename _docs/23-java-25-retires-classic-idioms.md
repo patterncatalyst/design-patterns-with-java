@@ -19,7 +19,7 @@ By the end of this chapter you can:
 - Return `Optional` from a lookup and compose past its absence with `map` and `orElse`.
 - Judge when an older idiom is still the right call, and spot generated code that reaches for a retired one.
 
-{% include excalidraw.html name="23-idiom-retirement-map" caption="Figure 23.1: six idioms this book built by hand, each retired by the Java 25 feature on the right that gets the identical guarantee from the compiler or the runtime instead." %}
+{% include excalidraw.html name="23-idiom-retirement-map" caption="Figure 23.1: six idioms built by hand, each retired by the Java 25 feature on the right that gets the identical guarantee from the compiler or the runtime instead." %}
 
 ## Why this matters
 
