@@ -95,8 +95,7 @@ Every chapter (`_docs/NN-*.md`) follows the same shape:
    matching `examples/` demo.
 
 Every pattern chapter additionally ends with a **"when NOT to use it"**
-section and carries exactly one **AI sidebar** box — no more than one per
-chapter.
+section and carries exactly one AI callout (below).
 
 - **Write like the EIP-Camel book** (`~/Dev/enterprise-integration-patterns-with-camel`), owner
   decision 2026-11-08: get to the point. About 2,000 words a chapter is the goal and 2,500 the
@@ -107,10 +106,12 @@ chapter.
   one-sentence definition) and `### How Java models it`, then topic H3s. JDK and tool versions are
   stated only in prerequisites, Appendix A and the README; elsewhere keep a version only as a
   feature fact ("scoped values, final in JDK 25").
-- **AI sidebar** is `<blockquote class="ai-sidebar" markdown="1">`: `**Specifying <thing>.**`, one
-  sentence on what a vague request leaves open, a quoted prompt the reader can paste (naming the
-  example's own types and the chapter's decisions), then one line on how to check the reply
-  (the `mvn` test command or what to look for). Never advice about what assistants tend to do.
+- **AI callout ("Explore with your agent")**, the minikube-on-fedora and openshift-local-on-fedora
+  format (owner decision 2026-11-08): a plain markdown blockquote, `> **🤖 Explore with your agent**`,
+  a `>` line, the prompt as one quoted paragraph (`> "..."`) naming the example's own types and the
+  chapter's decisions, then optionally `>` and one `Check:` line (the `mvn` test command or what to
+  look for). No HTML wrapper, no class, no nested quote, no "Specifying X" lead-in, never a claim
+  about what assistants do.
 - Voice: no em-dash (zero tolerance), no rule-of-three, no contrived AI
   phrasing, no confessional register ("to be honest", "admittedly", "let's
   be real"). Run `lgtm-professional-voice` before calling a chapter done.
