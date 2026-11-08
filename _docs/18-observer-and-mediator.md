@@ -12,73 +12,24 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- Name the force each pattern answers: Observer frees a subject from
-  knowing who is listening to it; Mediator frees a set of peers from
-  knowing about each other at all.
-- Build an Observer subject that fans a status change out to independently
-  subscribed listeners through one functional interface, from a named class
-  down to a bare lambda, and say when the lambda form is enough on its own.
-- Manage a subscription with an `AutoCloseable` handle so try-with-resources
-  closes it, and explain why a snapshot copy of the listener list matters
-  during notification.
-- Build a Mediator that routes events between a warehouse, a carrier, and a
-  customer-notification station, none of which ever references another
-  directly.
-- Tell the two patterns apart by the shape of the communication each one
-  centralizes: Observer's one-to-many fan-out versus Mediator's
-  many-to-many routing through a single hub.
-- Recognize when either pattern is coordinating collaborators that have no
-  real reason to avoid knowing about each other, and say what to write
-  instead.
+- Build an Observer subject that notifies listeners through one functional interface, and choose between a named listener class and a lambda.
+- Return an `AutoCloseable` subscription handle so try-with-resources unsubscribes, and notify over a snapshot so a listener can unsubscribe mid-notification.
+- Know when `java.util.concurrent.Flow` replaces a listener list.
+- Build a Mediator that routes events between a warehouse, a carrier and a notification station that never reference each other.
+- Tell the two apart: one-to-many fan-out against many-to-many routing through a hub.
+- Recognize when a direct call is better than either.
 
 ## Why this matters
 
-A shipment's status changes many times between the moment a warehouse packs
-it and the moment it lands on a doorstep, and more than one part of a
-shipping system cares every time it does. A support dashboard wants the
-latest status to show up the instant it changes. An alerting service wants
-to know the moment a shipment flips into an exception state, and nothing
-before that. A billing dispute, months later, wants a durable record of
-every transition a specific tracking number went through. None of those
-three concerns is the status change itself; each one is something that
-happens in response to it, added independently of the others and on its own
-schedule. Observer is the Gang of Four's name for exactly this force: a
-subject broadcasts one fact, that its state changed, to an open set of
-listeners it never has to enumerate by name, import, or even know exist.
+A shipment's status changes many times between packing and delivery, and several parts of the system care. A support dashboard shows the latest status. An alerting service wants only the move into an exception state. A billing dispute months later wants every transition. Each reaction is added on its own schedule, and the tracker shouldn't have to know any of them exist. That's Observer.
 
-A warehouse dispatch desk has a related problem with a different shape. A
-warehouse stages an order and hands it to a carrier; the carrier picks it
-up, moves it through delivery, and occasionally reports a problem; a
-customer-notification service has to hear about every one of those events
-and turn it into a message a customer reads. If the warehouse called the
-carrier's method directly, and the carrier called the notification
-service's method directly, adding a fourth collaborator, a
-returns-processing stage that needs to hear about delivery exceptions too,
-would mean editing every existing class that stage needs to hear from. The
-number of possible direct wires between components grows far faster than
-the number of components. Mediator is the Gang of Four's name for breaking
-that mesh: no warehouse, carrier, or notification component ever calls
-another one's method, and every one of them talks only to a single
-coordinator standing between them. The coordinator is the one place in the
-system allowed to know who everyone is and what each of them is for.
+A dispatch desk has a different shape. The warehouse stages an order, the carrier picks it up and reports progress, and a notification service turns every event into a customer message. If each component called the next directly, adding a returns stage that hears about delivery exceptions would mean editing every class it hears from, and the number of direct wires grows faster than the number of components. That's Mediator: each component talks only to one coordinator, the one place that knows who everyone is.
 
-Both patterns loosen a connection that would otherwise bind two parts of a
-system directly to each other, but they loosen it along different axes.
-Observer frees a subject from needing to know who is listening to it, and
-nothing about a listener's identity ever reaches the subject's own code.
-Mediator frees a set of peers from knowing about each other at all, and
-pays for that with a hub that does know about every one of them. That
-distinction, not how similar their code looks, is what separates the two
-patterns.
+Observer frees a subject from knowing its listeners. Mediator frees peers from knowing each other, and pays with a hub that knows all of them.
 
 {% include excalidraw.html name="18-observer-mediator" caption="Figure 18.1: A ShipmentTracker subject fanning a status change out to independent listeners, next to a DispatchCoordinator mediator routing between three collaborators that never call each other directly." %}
 
-## The domain: a shipment tracker and a dispatch desk
-
-The example behind this chapter lives in `examples/18-observer-mediator`;
-its `README.md` covers what each class does, and `demo.sh` builds and runs
-it. Both halves of the example share one small enum, a shipment's lifecycle
-from creation to delivery:
+Both halves of `examples/18-observer-mediator` share one enum, and share nothing else:
 
 ```java
 public enum ShipmentStatus {
@@ -95,21 +46,24 @@ public enum ShipmentStatus {
 }
 ```
 
-The Observer half is `ShipmentTracker`, the subject that owns a shipment's
-current status and notifies whoever has subscribed every time that status
-moves. The Mediator half is `DispatchCoordinator`, which sits between three
-independent stations, `WarehouseStation`, `CarrierStation`, and
-`CustomerNotificationStation`, and decides which one responds to which
-event. Nothing in either half of the example reuses a type from the other;
-they are two separate forces, taught against the same shipping operation
-because both show up in the same system at once, not because one calls into
-the other.
+## Pattern: Observer
 
-## Observer: a subject that does not know who is listening
+### The problem
 
-`ShipmentTracker` holds one piece of state, a `ShipmentStatus`, and a
-collection of subscribed listeners. What a listener is, underneath, is a
-single-method functional interface:
+A tracker that calls the dashboard, the alerting service and the audit log by name has to change every time a reaction is added or removed, and a forgotten unsubscribe leaves a dead listener running.
+
+### The solution
+
+An **Observer** lets a subject notify an open set of subscribed listeners when its state changes, without knowing who they are.
+
+Use an Observer when:
+
+- more than one independent reaction follows the same change;
+- reactions are added and removed separately from the subject.
+
+### How Java models it
+
+A listener is a single-method functional interface:
 
 ```java
 @FunctionalInterface
@@ -118,22 +72,11 @@ public interface ShipmentStatusListener {
 }
 ```
 
-`subscribe(ShipmentStatusListener)` stores one of these and returns a
-`Subscription`; `advanceStatus()` moves the tracked status forward and calls
-every currently subscribed listener with the tracking ID, the old status,
-and the new one, in subscription order. A subject built this way has no
-class hierarchy to maintain and no base type a listener must extend to
-participate. Anything satisfying the one-method shape, a named class, a
-method reference, or a lambda with captured state, is a valid listener.
+`ShipmentTracker.subscribe(ShipmentStatusListener)` stores a listener and returns a `Subscription`. `advanceStatus()` moves the status and calls every subscribed listener in subscription order with the tracking ID, the old status and the new one. Advancing past `DELIVERED` or `EXCEPTION` throws `IllegalStateException`. There's no base class to extend: a named class, a method reference or a lambda all qualify.
 
-`DashboardView` and `AlertingService` are named classes that implement
-`ShipmentStatusListener`. Each earns the ceremony of a class because each
-one is a long-lived collaborator something else holds onto and queries
-later: `DashboardView.currentStatusLine()` reads the latest status a
-different part of the program displays, and `AlertingService.alerts()`
-accumulates a list another component reads after the fact. Neither is a
-one-shot reaction; both are collaborators with state and an identity of
-their own, which is exactly the case a named class is for.
+### Named class or lambda
+
+`DashboardView` and `AlertingService` are named classes because other code holds and queries them: `currentStatusLine()` and `alerts()`.
 
 ```java
 public final class DashboardView implements ShipmentStatusListener {
@@ -150,11 +93,7 @@ public final class DashboardView implements ShipmentStatusListener {
 }
 ```
 
-## When a lambda is the whole story
-
-A caller with nothing but a reaction and no state to expose does not need a
-named class at all. This example's audit log subscribes directly, with no
-class anywhere:
+The audit log only reacts, so it's a lambda capturing the list it appends to:
 
 ```java
 List<String> auditEntries = new ArrayList<>();
@@ -163,27 +102,16 @@ Subscription auditSubscription = tracker.subscribe(
                 auditEntries.add(trackingId + ": " + oldStatus + " -> " + newStatus));
 ```
 
-That lambda is the listener the task of logging every transition needs:
-one closure, capturing the list it appends to, with no class file and
-nothing for a reader to look up in a separate package. A language without
-first-class functions forces every listener through an interface
-implementation no matter how small its job is, which is why the textbook
-Observer pattern is drawn as a class diagram in the first place. Java's
-functional interfaces remove that constraint for any contract with exactly
-one abstract method, so reach for a named class like `DashboardView` only
-when a listener earns a name of its own: a long-lived object a different
-part of the program holds onto, queries, or reuses across more than one
-subscription. A lambda that only ever runs in reaction to a notification
-and keeps no identity of its own, like the audit log, does not need that
-ceremony.
+| Form | Use it when |
+| --- | --- |
+| Lambda or method reference | The listener only reacts and keeps no identity of its own. |
+| Named class | Other code holds the listener, queries its state, or reuses it across subscriptions. |
 
-## Closing the dangling-listener gap with `AutoCloseable`
+The GoF class diagram assumes every listener is a class. A functional interface removes that constraint for any one-method contract.
 
-The classic hazard in every Observer implementation is a listener that
-stays subscribed after whatever it belonged to has stopped caring, quietly
-running reactions nobody reads anymore. This example closes that hole with
-a `Subscription` handle rather than a separate `unsubscribe()` call a
-caller has to remember to make on every exit path, including an exception:
+### Unsubscribe with AutoCloseable
+
+`Subscription` narrows `close()` so it declares no checked exception, since closing a subscription can't fail:
 
 ```java
 public interface Subscription extends AutoCloseable {
@@ -192,9 +120,7 @@ public interface Subscription extends AutoCloseable {
 }
 ```
 
-`ShipmentTracker.subscribe()` returns a `Subscription` whose `close()`
-removes the listener from the tracker's map, which makes a subscription a
-natural fit for try-with-resources:
+`close()` removes the listener from the tracker, so try-with-resources ends a subscription on every exit path, including an exception:
 
 ```java
 AtomicInteger callCount = new AtomicInteger();
@@ -205,18 +131,11 @@ try (Subscription ignored = thirdTracker.subscribe(
 thirdTracker.advanceStatus(ShipmentStatus.IN_TRANSIT);
 ```
 
-The listener only counts the one status change raised inside the block;
-the second `advanceStatus()` call runs after the try-with-resources block
-already closed the subscription, so nothing is listening to hear about it.
-`Subscription` narrows `AutoCloseable#close()` to declare no checked
-exception, the same idiom a handful of narrower resource types in the JDK
-follow: closing a subscription cannot fail, so forcing every caller to
-catch or declare `Exception` would be ceremony with nothing behind it.
+The listener counts one change. The second `advanceStatus()` runs after the block has closed the subscription.
 
-`advanceStatus()` guards against one more hazard. A listener is free to
-unsubscribe itself, or trigger an unsubscribe of a different listener, from
-inside its own callback, so notification runs over a snapshot copy of the
-listener list rather than the live one:
+### Notify over a snapshot
+
+A listener may unsubscribe itself, or another listener, from inside its callback. The tracker keeps listeners in a `LinkedHashMap`, so notification iterates a copy:
 
 ```java
 List<ShipmentStatusListener> snapshot = new ArrayList<>(listeners.values());
@@ -225,36 +144,38 @@ for (ShipmentStatusListener listener : snapshot) {
 }
 ```
 
-Without that copy, a listener unsubscribing mid-notification would mutate
-the very map this loop is iterating and raise a
-`ConcurrentModificationException`. Copying a handful of listener references
-once per status change is a small, fixed cost against a failure that is
-hard to reproduce, showing up only when a listener's own reaction changes
-the subscription list it is being called from.
+Iterating the live map instead throws `ConcurrentModificationException` the moment a callback unsubscribes. Copying a few references per change is a fixed cost against a failure that appears only when a reaction edits the list it's called from.
 
-## Reaching for `java.util.concurrent.Flow` instead
+### When to reach for Flow
 
-A listener list is the right shape when a subject calls its listeners
-directly, synchronously, on whatever thread raised the change, and expects
-each one to finish quickly. Once a shipment tracker has to support backpressure,
-asynchronous delivery, or a publisher feeding more than one kind of
-subscriber at scale, `java.util.concurrent.Flow`'s `Publisher` and
-`Subscriber` interfaces are the standard library's answer to the same
-force, with a subscriber able to request only as many events as it can
-currently process instead of being called whether it is ready or not. The
-tradeoff runs the other way too: `Flow` brings a request-based protocol and
-subscription lifecycle a reader has to learn, which is pure overhead for a
-subject with a handful of synchronous, fast listeners like `DashboardView`
-and `AlertingService`. Reach for `ShipmentStatusListener`'s plain list
-first, and move to `Flow` only once a listener's own processing time, or
-its volume, makes a direct, unbounded call from the subject a real problem.
+A listener list calls each listener synchronously on the thread that raised the change. `java.util.concurrent.Flow` (`Publisher`, `Subscriber`, `Subscription`) adds asynchronous delivery and backpressure: a subscriber requests only as many items as it can handle.
 
-## Mediator: centralizing a many-to-many conversation
+| Listeners are | Use |
+| --- | --- |
+| Few, fast and synchronous, like `DashboardView` and `AlertingService` | A plain listener list |
+| Slow, high-volume, or need to throttle the publisher | `Flow` |
 
-`DispatchColleague` is the shared base every station in the dispatch desk
-extends. It holds no reference to `WarehouseStation`, no reference to
-`CarrierStation`, and no reference to `CustomerNotificationStation`: the
-only thing a colleague can reach is its own mediator.
+`Flow`'s request protocol and lifecycle are overhead until a listener's processing time or volume makes a direct call from the subject a problem.
+
+## Pattern: Mediator
+
+### The problem
+
+Three stations react to each other's events. Direct references between them mean every new collaborator adds a field and a call to each peer that cares, and the wiring becomes a mesh.
+
+### The solution
+
+A **Mediator** encapsulates how a set of objects interact, so each object talks only to the mediator and never to its peers.
+
+Use a Mediator when:
+
+- several collaborators react to each other's events;
+- the routing rule changes independently of any one collaborator;
+- different teams own different collaborators.
+
+### How Java models it
+
+Every station extends `DispatchColleague`, which can reach only its mediator:
 
 ```java
 public abstract class DispatchColleague {
@@ -272,10 +193,7 @@ public abstract class DispatchColleague {
 }
 ```
 
-`WarehouseStation.markOrderReady()` calls
-`raise(DispatchEvent.ORDER_READY_FOR_PICKUP, orderId)`, and that call has no
-idea which station, if any, responds. Wiring a colleague to a mediator
-happens once, in `DispatchCoordinator`'s constructor:
+`WarehouseStation.markOrderReady()` raises `ORDER_READY_FOR_PICKUP` without knowing who responds. `DispatchCoordinator` wires the colleagues in its constructor:
 
 ```java
 public DispatchCoordinator(WarehouseStation warehouse, CarrierStation carrier,
@@ -289,25 +207,13 @@ public DispatchCoordinator(WarehouseStation warehouse, CarrierStation carrier,
 }
 ```
 
-That constructor order matters for a reason specific to Mediator: every
-colleague needs a mediator reference, but the coordinator needs live
-colleague objects to construct itself from, which is a circular requirement
-if both sides try to hold the other from the start. Binding after
-construction, through a method only the coordinator is meant to call,
-breaks the cycle: a `WarehouseStation` can exist with no mediator at all
-until something wires it to one.
+Colleagues need the mediator and the mediator needs live colleagues. Binding after construction breaks that cycle: a station exists with no mediator until the coordinator wires it.
 
-`bindMediator()` has no access modifier, which gives it package-private
-visibility. Java has no `friend` declaration the way C++ does, but a
-package-private method reachable only from classes in the same package, here
-`DispatchCoordinator`, is the idiomatic substitute: every caller outside the
-`dispatch` package, including the colleague subclasses themselves, sees a
-type with no visible way to rewire its own mediator. The access modifier is
-doing the encapsulation work a language-level `friend` keyword would do in
-C++.
+`bindMediator()` is package-private. Java has no `friend` declaration, and package-private access is the idiomatic substitute: code outside the `dispatch` package sees no way to rewire a colleague's mediator.
 
-Routing itself is a single method on the coordinator, a switch expression
-over the event with no branch that lets a colleague skip the hub:
+### Routing in one switch
+
+All routing is one exhaustive switch expression over `DispatchEvent`:
 
 ```java
 @Override
@@ -324,120 +230,40 @@ public void notify(DispatchColleague sender, DispatchEvent event, String orderId
 }
 ```
 
-Calling `warehouse.markOrderReady("ORD-5001")` cascades through two hops the
-warehouse itself never has to know about: `WarehouseStation` raises
-`ORDER_READY_FOR_PICKUP`, the coordinator calls
-`CarrierStation.confirmPickup()`, and that call itself raises
-`PICKED_UP_BY_CARRIER`, which the same coordinator routes to
-`CustomerNotificationStation.send()`. Three stations took part in one
-customer-visible outcome, and at no point did any one of them hold a
-reference to another. The switch expression over `DispatchEvent` is
-exhaustive against the enum's four constants; adding a fifth event without a
-matching case is a compile error, not a runtime surprise discovered on
-whichever order reaches the missing branch first.
+`warehouse.markOrderReady("ORD-5001")` cascades through two hops the warehouse never sees: the coordinator calls `CarrierStation.confirmPickup()`, which raises `PICKED_UP_BY_CARRIER`, which the coordinator routes to `CustomerNotificationStation.send()`. No station holds a reference to another. A fifth `DispatchEvent` constant without a case is a compile error.
 
-> **AI sidebar.** Ask an LLM pairing partner to wire together a handful of
-> components that need to react to each other's events, and a common result
-> has every component holding a direct field reference to every other
-> component it needs to call, because that is the shape requiring the least
-> new vocabulary to produce. It compiles, and for three stations it even
-> reads clearly. Check what happens to that generated code the moment a
-> fourth collaborator needs to hear about the same event: every existing
-> class that needs to know about it gets a new field and a new call, and the
-> number of wires between stations grows faster than the number of stations
-> does. A `DispatchCoordinator`-style hub costs one extra hop per event and
-> buys a system where adding a collaborator means teaching the hub about it
-> once, not editing every peer that happens to care. A generated class
-> holding references to three sibling classes it calls directly, with no
-> coordinator anywhere in sight, is the clearest sign the model reached for
-> the shape with the fewest moving parts today instead of the one that
-> stays flat as the collaborator count grows.
+## When not to use it
 
-## When not to use Observer or Mediator
+- **Observer.** A status change with exactly one reaction needs a direct method call, not a `Subscription` to manage and a functional interface to trace through. Add the subscription machinery when a second listener is in hand or clearly coming.
+- **Mediator, too early.** Three stations that won't gain a fourth need no hub. A visible sequence of calls, read top to bottom, is easier to review than a coordinator.
+- **Mediator, too late.** A coordinator absorbs every new rule because one more `case` always looks cheapest. Once `DispatchCoordinator` holds validation, retry policy and station-specific business rules, it's a god object. Keep its job to deciding which station hears which event; what the station does belongs in that station, as `CarrierStation.confirmPickup()` does.
 
-Both patterns earn their cost when there is a real reason a subject must
-not know who depends on it, or a real reason a set of peers must not know
-about each other. Outside those two specific cases, each one adds
-indirection with nothing underneath it to justify the cost.
-
-A status change with exactly one piece of code that ever reacts to it does
-not need `ShipmentTracker`'s subscription machinery at all; it needs a
-direct method call at the point the status changes. Wrapping a single,
-fixed reaction in a subscribe-and-notify pipeline before a second listener
-is in hand or clearly coming adds a `Subscription` to manage and a reader's
-detour through a functional interface to find the one call site that will
-ever use it. The plainer alternative is calling the handler directly,
-naming the pattern and the plain non-pattern side by side and letting the
-forces, not the pattern's familiarity, decide.
-
-Mediator fails a related test in a narrower way, and it fails it in both
-directions. Three stations that only ever grow by one and never gain a
-fourth collaborator do not need a hub standing between them; a plain,
-visible sequence of calls, read start to finish by whoever maintains that
-code, is the whole story, and a reviewer can confirm it is correct without
-jumping to a coordinator class to see who talks to whom. The point where
-that calculus flips is the point this chapter's dispatch desk crossed: more
-than a handful of collaborators, different teams owning different ones, or
-a routing rule that changes independently of any single collaborator's own
-logic.
-
-The other direction is just as real, and it shows up after a Mediator is
-already in production rather than before. A coordinator that starts out
-routing four event types between three stations can quietly absorb every
-new rule the system ever needs, because adding one more `case` to its
-switch always looks like the path of least resistance compared to touching
-a station's own class. A `DispatchCoordinator` that has grown validation
-logic, retry policy, and business rules specific to one station, on top of
-its original routing job, has stopped being a hub and become a god object
-wearing a Mediator's name. The fix is not to abandon the pattern, it is to
-keep the coordinator's job narrow: deciding which station hears about which
-event, and nothing about what a station does once it hears about it. A
-station's own method, `CarrierStation.confirmPickup()`, is where that
-station's logic belongs; the coordinator's `notify()` method is only ever
-allowed to call it.
+> **🤖 Explore with your agent**
+>
+> "In `examples/18-observer-mediator`, add a `ReturnsStation` that hears about `DELIVERY_EXCEPTION`. Make it extend `DispatchColleague`, give it no field referring to `WarehouseStation`, `CarrierStation` or `CustomerNotificationStation`, pass it to the `DispatchCoordinator` constructor and bind it there with the package-private `bindMediator`, and add the call to the `DELIVERY_EXCEPTION` case of `notify`. Update `DispatchCoordinatorTest` for the new constructor and add a case that a delivery exception reaches `ReturnsStation`. Keep routing out of the stations and station logic out of the coordinator."
+>
+> Check: `mvn -q -f examples/18-observer-mediator/pom.xml test -Dtest=DispatchCoordinatorTest`, and confirm no station class gains a field typed as another station.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this
-loop. From the repository root, the aggregator picks up
-`examples/18-observer-mediator` automatically:
+From the repository root, the aggregator builds every example:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
 
-This example is also standalone-buildable from its own directory:
+Or build this one on its own:
 
 ```sh
 cd examples/18-observer-mediator
 mvn test
 ```
 
-Either path runs the same 11 JUnit 5 cases, asserted with AssertJ and
-Mockito, including a suite that checks a listener is notified on a status
-change, an unsubscribed listener is not, a self-unsubscribing listener does
-not break the remaining fan-out, and `DispatchCoordinator` routes an event
-to the correct station and nowhere else. Observed locally with Temurin
-25.0.2:
-
-```
-Tests run: 11, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see the fan-out and the dispatch cascade produce real output rather than
-just reading an assertion that says they work, run the example's own demo
-script:
+All 11 tests pass. The demo subscribes a dashboard and an alerting service to one shipment and advances it into an exception, subscribes a lambda audit log to a second shipment, closes a subscription mid-session, then runs an order through the dispatch coordinator:
 
 ```sh
 examples/18-observer-mediator/demo.sh
 ```
-
-It subscribes a dashboard and an alerting service to a tracked shipment,
-advances its status through an exception, subscribes a plain lambda as an
-audit log on a second shipment, shows a subscription closing mid-session,
-then runs an order through the dispatch coordinator end to end:
 
 ```
 == Observer: named listeners fan out on a status change ==
@@ -462,13 +288,9 @@ Messages the coordinator routed to the customer:
   ORD-5001: There is a delivery exception on your package; our team is investigating.
 ```
 
-The alert line shows the exact transition that triggered it,
-`IN_TRANSIT -> EXCEPTION`, confirming `AlertingService` only reacts to the
-one transition it cares about and not to the `PICKED_UP` or `IN_TRANSIT`
-changes that preceded it. The mediator block shows three messages reaching
-the customer from a single `markOrderReady()` call plus two direct
-`CarrierStation` calls, none of which required the warehouse, the carrier,
-or the notification station to hold a reference to any of the others.
+The single alert is the `IN_TRANSIT -> EXCEPTION` transition; earlier changes didn't trigger it. The three customer messages come from one `markOrderReady()` call and two `CarrierStation` calls, with no station referencing another.
+
+- **Drop the snapshot.** In a scratch copy, make `advanceStatus()` iterate `listeners.values()` directly. The self-unsubscribe test errors with `ConcurrentModificationException`.
 
 ## For deeper coverage
 
@@ -476,19 +298,16 @@ or the notification station to hold a reference to any of the others.
   Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480)
   (Addison-Wesley): the original Observer and Mediator entries, including
   the "one-to-many dependency" and "encapsulate how a set of objects
-  interact" intent statements this chapter's tracker and dispatch desk each
-  build on.
+  interact" intent statements the tracker and dispatch desk build on.
 - The official [`java.util.concurrent.Flow`
   documentation](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Flow.html):
-  the `Publisher`/`Subscriber`/`Subscription` protocol this chapter's
-  listener list is contrasted against, including the request-based
-  backpressure a plain listener list does not provide.
+  the `Publisher`/`Subscriber`/`Subscription` protocol the listener list is
+  contrasted against, including the request-based backpressure a plain
+  listener list does not provide.
 - The official [JUnit 5 documentation](https://junit.org/junit5/docs/current/user-guide/)
   and [Mockito documentation](https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html):
-  the testing idiom behind `examples/18-observer-mediator`'s suite, which
-  asserts fan-out order, post-unsubscribe silence, and correct event
-  routing with a verified mock rather than only checking that each class
-  constructs without error.
-- The full reading list behind this book's opinions lives on the
-  [bibliography page]({{ '/bibliography/' | relative_url }}); each citation
-  there is a pointer to the full book, not a substitute for reading it.
+  the testing idiom behind `examples/18-observer-mediator`, which asserts
+  fan-out order, post-unsubscribe silence, and event routing with a
+  verified mock.
+- The full reading list lives on the
+  [bibliography page]({{ '/bibliography/' | relative_url }}).
