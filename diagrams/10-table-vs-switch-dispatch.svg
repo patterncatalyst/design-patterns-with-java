@@ -18,7 +18,7 @@
 <text x="225.0" y="322.5" font-size="11.5" fill="#555555" text-anchor="middle">DELIVER → DELIVERED   RETURN_TO_SENDER → RETURNED</text>
 <rect x="490" y="65" width="370" height="50" rx="9" fill="#ffffff" stroke="#111111" stroke-width="2"/>
 <text x="675.0" y="88.0" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">ship(String carrierTrackingNumber)</text>
-<text x="675.0" y="105.0" font-size="11.5" fill="#555555" text-anchor="middle">switch (state) { … } — no default</text>
+<text x="675.0" y="105.0" font-size="11.5" fill="#555555" text-anchor="middle">switch (state) { … }, no default</text>
 <rect x="490" y="130" width="370" height="34" rx="9" fill="#ffffff" stroke="#999999" stroke-width="1.5"/>
 <text x="675.0" y="152.5" font-size="13.5" font-weight="700" fill="#111111" text-anchor="middle">case Created c → reject(SHIP)</text>
 <rect x="490" y="172" width="370" height="34" rx="9" fill="#fff8ef" stroke="#e8870c" stroke-width="2"/>
@@ -45,6 +45,6 @@
 <text x="456.0" y="207.0" font-size="11" fill="#ffffff" stroke="#ffffff" stroke-width="3" paint-order="stroke" text-anchor="middle">same rule, two idioms</text>
 <text x="456.0" y="207.0" font-size="11" fill="#b8650a" text-anchor="middle">same rule, two idioms</text>
 <text x="450" y="25" font-size="13" fill="#888" text-anchor="middle" font-weight="700">The identical (PACKED, SHIP) → IN_TRANSIT rule, stated two ways</text>
-<text x="225" y="360" font-size="10.5" fill="#888" text-anchor="middle">DELIVERED, CANCELLED, RETURNED, LOST: absent — no entry to even look up.</text>
-<text x="450" y="455" font-size="11.5" fill="#64748b" text-anchor="middle">Table: 3 reachable statuses only. Switch: all 7, compiler-enforced — a forgotten case fails the build.</text>
+<text x="225" y="360" font-size="10.5" fill="#888" text-anchor="middle">DELIVERED, CANCELLED, RETURNED, LOST: absent, no entry to look up.</text>
+<text x="450" y="455" font-size="11.5" fill="#64748b" text-anchor="middle">Table: 3 reachable statuses only. Switch: all 7, compiler-enforced: a forgotten case fails the build.</text>
 </svg>

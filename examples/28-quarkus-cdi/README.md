@@ -8,7 +8,7 @@ each pattern never changed; only who answers them did.
 ## The domain
 
 - `Money`, `Shipment`, `RateQuote`: the same kind of exact-cents, real-domain
-  records the rest of this book uses.
+  records the other examples use.
 - `RateQuoter`: the one-method contract `FlatRateQuoter` and
   `WeightTieredRateQuoter` both satisfy. Neither implementation is a CDI
   bean in its own right.

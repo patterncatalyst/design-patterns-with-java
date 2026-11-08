@@ -12,7 +12,7 @@ onto a finished feature.
 - `Shipment`: a `record` carrying a weight, a `CargoClass`, a destination
   code, and a declared value in cents. The compact constructor enforces only
   structural invariants (non-null cargo class, non-blank destination); a
-  non-positive weight or declared value is allowed through on purpose, so
+  non-positive weight or declared value is allowed through, so
   `ShipmentValidator` has something real to reject.
 - `ShipmentValidator`: three independent business rules (positive weight,
   declared value within the insurable limit, hazmat under its weight
@@ -44,7 +44,7 @@ onto a finished feature.
 
 `ShipmentBookingServiceTest` is the Mockito-focused suite:
 
-- `ShipmentValidator` and `FreightCostCalculator` are used for real in every
+- `ShipmentValidator` and `FreightCostCalculator` are real instances in every
   test; neither is mocked, because neither has a side effect worth
   intercepting.
 - `RateLedger` is mocked (`@Mock`). `WhenAccepted` verifies a booking was

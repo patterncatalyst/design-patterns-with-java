@@ -23,7 +23,7 @@ contrasted with Optional resolved at a construction boundary.
   a generic interning cache; `PackagingSpecCatalog` and `CountryCatalog`
   both wrap one.
 - `HazmatClass` is a plain enum. An enum constant is already a Flyweight
-  the language gives you for free, which is why it needs no catalog at all,
+  the language provides, which is why it needs no catalog at all,
   unlike `PackagingSpec` and `Country`, whose sets are too large to
   hand-enumerate as constants.
 - `ShipmentAlertHandler` is the collaborator a box tells about an
@@ -124,7 +124,7 @@ examples/17-composite-flyweight-null/
   pom.xml                       # standalone + aggregator-integrated module
   demo.sh                       # compile + run ShipmentDemo
   src/main/java/com/patterncatalyst/designpatterns/ch17/shipping/
-    HazmatClass.java              # a closed set; already a Flyweight for free
+    HazmatClass.java              # a closed set; already a Flyweight
     Country.java                   # intrinsic destination state (record)
     PackagingSpec.java              # intrinsic packaging state (record)
     FlyweightPool.java                # generic interning cache

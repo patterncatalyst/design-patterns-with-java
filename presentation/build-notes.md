@@ -5,35 +5,35 @@ Java*, built with the `lgtm-presentation` skill's pptxgenjs engine. Three
 deck builders are planned here (separate executors write these, not this
 scaffold):
 
-- `deck-101.js` — 101-level overview deck
-- `deck-201.js` — 201-level deep-dive deck
-- `deck-testing-legacy-ai.js` — testing / legacy-code / AI-assisted-patterns deck
+- `deck-101.js`: 101-level overview deck
+- `deck-201.js`: 201-level deep-dive deck
+- `deck-testing-legacy-ai.js`: testing / legacy-code / AI-assisted-patterns deck
 
 ## What's already in place
 
-- `deck-helpers.js` — bundled helper library (COLOR/FONT/W/H + slide
+- `deck-helpers.js`: bundled helper library (COLOR/FONT/W/H + slide
   helpers: `addContentTitle`, `addBullets`, `addTwoColBullets`,
   `addStatusTable`, `addCodeSlide`, `addDiagramSlide`, `addPerfCallout`,
   `addCaption`, `addSectionDivider`, `addFooter`, `addNotes`). Do not
-  rewrite it; extend only if a genuinely new slide shape is needed.
-- `assets/` — cover panel, section divider panel, and logos used by
+  rewrite it; extend only if a new slide shape is needed.
+- `assets/`: cover panel, section divider panel, and logos used by
   `deck-helpers.js` (`ASSETS` constant, defaults to `./assets`).
-- `png/` — PNG renders of every chapter diagram in `../diagrams/*.svg`,
+- `png/`: PNG renders of every chapter diagram in `../diagrams/*.svg`,
   rendered at `output_width=1600` via cairosvg. `addDiagramSlide` reads
   these via the `PNG` constant (defaults to `./png`).
-- `package.json` — local `pptxgenjs` dependency (installed into
+- `package.json`: local `pptxgenjs` dependency (installed into
   `node_modules/`, gitignored).
 
 ## Prerequisites
 
 - Node.js with `pptxgenjs`. It is installed locally in this directory
-  (`npm install` already run — see `node_modules/`), so `require("pptxgenjs")`
+  (`npm install` already run; see `node_modules/`), so `require("pptxgenjs")`
   resolves with no extra setup.
   - Fallback, only if `node_modules/pptxgenjs` is ever missing and npm is
     offline: `export NODE_PATH=$(npm root -g)` before running `node`, so a
     global install resolves instead.
 - Python 3 with `cairosvg` (already used once to render `png/`; re-run only
-  if a diagram SVG changes — see "Regenerating diagram PNGs" below).
+  if a diagram SVG changes; see "Regenerating diagram PNGs" below).
 - LibreOffice (`soffice`) and poppler (`pdftoppm`) for QA rendering.
 
 ## Building a deck
@@ -63,7 +63,7 @@ pdftoppm -jpeg -r 110 -f N -l N qa/<out>.pdf qa/pg
 
 Eyeball the rendered JPEGs: table first columns don't wrap, code-slide
 captions sit below the dark box, diagrams are centered, and the Red Hat
-logo appears bottom-right on every content slide. `qa/` is gitignored —
+logo appears bottom-right on every content slide. `qa/` is gitignored:
 it is scratch QA output, not a deliverable.
 
 ## Regenerating diagram PNGs

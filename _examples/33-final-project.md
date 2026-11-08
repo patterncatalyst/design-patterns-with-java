@@ -13,7 +13,7 @@ The final project composes the patterns the book taught into one working shippin
 dispatch center: a `ShipmentBuilder` (Builder) resolves a `RateStrategy` per carrier,
 a `Shipment` is both the State-machine context and the Observer subject, undoable
 `ShipmentCommand`s drive it through its lifecycle with a `CommandHistory`, and status
-listeners react to events. Each pattern earns its place by the force it answers.
+listeners react to events. Each pattern answers one named force.
 
 The JUnit 5 + AssertJ (+ Mockito) tests prove the composed behavior end to end:
 building, the lifecycle (illegal transitions refused), command undo restoring state,

@@ -1353,13 +1353,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Same 8 virtual threads either way \u2014 only how many blocking calls may be in flight at once differs.",
+   "text": "Same 8 virtual threads either way: only how many blocking calls may be in flight at once differs.",
    "fontSize": 11.5,
    "fontFamily": 1,
    "textAlign": "left",
    "verticalAlign": "top",
    "containerId": null,
-   "originalText": "Same 8 virtual threads either way \u2014 only how many blocking calls may be in flight at once differs.",
+   "originalText": "Same 8 virtual threads either way: only how many blocking calls may be in flight at once differs.",
    "lineHeight": 1.25,
    "baseline": 11.5
   }

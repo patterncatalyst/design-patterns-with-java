@@ -98,7 +98,7 @@ function divider(code, title, subtitle, notes) {
 // SECTION 1 - Testing the work
 // =============================================================================
 divider("01", "Testing the work", "JUnit 5, Mockito, AssertJ, and the vocabulary behind every pattern's proof",
-  "This section is the shared testing foundation the rest of the deck assumes: the JUnit 5 lifecycle and " +
+  "This section is the shared testing foundation every later section assumes: the JUnit 5 lifecycle and " +
   "parameterized-test styles that prove a component does what it claims, Mockito's mock and spy vocabulary " +
   "for verifying an interaction rather than only a return value, and AssertJ for making a failure read as a " +
   "sentence instead of a traced argument list. Every example from here on uses a real shipping collaborator: " +
@@ -125,7 +125,7 @@ divider("01", "Testing the work", "JUnit 5, Mockito, AssertJ, and the vocabulary
     "re-checking. Putting that check only at the bottom of each test body means skipping it on exactly the " +
     "test where an early assertion failure already signaled trouble. @Nested pays off once at least two or " +
     "three related cases share one name; organizing a single test into its own nested class is structure for " +
-    "its own sake, not grouping that earns its keep.");
+    "its own sake.");
 }
 
 {
@@ -364,7 +364,7 @@ divider("01", "Testing the work", "JUnit 5, Mockito, AssertJ, and the vocabulary
     "Ask an LLM pairing partner to \"write tests for this service\" and a common result compiles, runs green, " +
     "and proves almost nothing. The tautological shape and the over-mocking shape share a root cause: a model " +
     "optimizing for a plausible-looking test rather than the smallest test that actually proves the claim. " +
-    "This is the same forces test the rest of this book applies everywhere: for every mock the model " +
+    "Apply the same forces test everywhere: for every mock the model " +
     "introduced, ask what side effect it is isolating, and delete the ones with no answer. The working-with-" +
     "AI section later in this deck builds the same discipline into a formal verification gate.");
 }

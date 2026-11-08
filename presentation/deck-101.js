@@ -141,7 +141,7 @@ patternSlide(
   [
     "A freight invoice's one Invoice class totaling a bill, formatting a receipt, and persisting the record means a tax fix, a wording change, and a storage change all land in the same file.",
     "SRP splits by reason to change, not by line count: an InvoiceCalculator, an InvoiceFormatter, and an InvoiceRepository, each with exactly one reason to change and no knowledge the other two exist.",
-    "Skip the split when nothing has a second reason to change yet; a class with one job and no second job in sight does not need to be carved into pieces in advance.",
+    "Skip the split when nothing has a second reason to change yet; a class with one job does not need to be split in advance.",
   ],
   undefined,
   undefined,

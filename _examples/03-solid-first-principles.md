@@ -16,7 +16,7 @@ reason to change never drags in another. The calculator depends on an
 `InvoiceRule` abstraction, so a `FlatServiceFeeRule` arrives as a new type with
 no edit to the calculator or the rules that came before it. A
 `PercentageDiscountRule` clamps its adjustment in a `final` method so every
-subtype stays substitutable, and a deliberately broken `ClearanceEventDiscountRule`
+subtype stays substitutable, and a broken `ClearanceEventDiscountRule`
 shows what a Liskov violation costs (an invoice driven negative).
 
 Value types (`LineItem`, `Invoice`, `Totals`) are Java `record`s. The JUnit 5 +
