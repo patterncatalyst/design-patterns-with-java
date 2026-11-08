@@ -12,79 +12,75 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- Explain why Java has no deterministic destructor, and why that makes
-  resource cleanup a problem every Java program has to solve explicitly
-  instead of a problem the language solves on its own.
-- Implement `AutoCloseable` on a resource type, and use try-with-resources
-  to guarantee `close()` runs on both a normal return and a thrown
-  exception, checked or unchecked.
-- State why finalizers and the Cleaner API are not a substitute for
-  try-with-resources, and name the specific guarantees they fail to make.
-- Build the Execute-Around Method idiom: a library method that owns a
-  resource's open/use/close sequence and takes the caller's business logic
-  as a lambda.
-- Recognize when a resource's lifetime needs to outlive the scope that
-  created it, and reach for a pooled or registry-owned resource instead of
-  a per-call try-with-resources block.
+- Explain why Java has no deterministic destructor, so every program releases resources explicitly.
+- Implement `AutoCloseable` and use try-with-resources so `close()` runs on a normal return and on any thrown exception, checked or unchecked.
+- Say why finalizers and the `Cleaner` API don't replace try-with-resources, and what they fail to guarantee.
+- Build the Execute-Around Method idiom: a library method that owns a resource's open, use and close and takes the caller's logic as a lambda.
+- Recognize a resource whose life outlasts the call that created it, and give it to a registry or pool instead of a per-call block.
 
 ## Why this matters
 
-A warehouse system opens a connection to a carrier's booking API every time
-it submits a manifest, writes a batch of shipments to an append-only ledger
-file before it reports the batch as processed, and holds open a
-subscription to a carrier's live tracking feed for as long as a shipment is
-in transit. Every one of those is a resource with a cost attached to
-staying open: a socket the carrier's API meters per tenant, a file handle
-the operating system caps per process, a feed subscription the carrier
-bills for by the minute. None of them is memory. The garbage collector will
-eventually reclaim the `CarrierConnection` object once nothing references
-it, but "eventually" tells you nothing about when the socket itself closes,
-and a batch job that opens a thousand connections in a loop without closing
-any of them will exhaust the carrier's connection limit long before the
-collector runs even one cycle.
+A warehouse system opens a connection to a carrier's booking API for each manifest, writes shipment batches to an append-only ledger file, and holds a subscription to a carrier's live tracking feed while a shipment is in transit. Each costs something while it's open: a socket the carrier meters per tenant, a file handle the operating system caps per process, a feed the carrier bills by the minute. None of them is memory. The garbage collector reclaims a `CarrierConnection` object eventually, but that says nothing about when its socket closes. A batch job that opens a thousand connections in a loop and closes none exhausts the carrier's limit before the collector runs once.
 
-C++'s RAII ties a resource's lifetime to an object's lifetime and lets the
-compiler call the release at a fixed, specified point: the moment a scope
-ends, through a destructor the language itself invokes. Java has no
-destructor. The `finalize()` method, which once looked like a Java answer to
-the same problem, never promised a schedule either; the JVM called it
-whenever its own garbage collector eventually ran, if at all, on an object
-the collector happened to visit, and `finalize()` was deprecated for
-removal because that lack of a guarantee made it unsafe for exactly the
-cases RAII was built for. Java's actual answer is a pair of idioms, both
-explicit, both opt-in, and both covered by this chapter against a shipping
-domain: try-with-resources over the `AutoCloseable` interface for the
-common case of releasing one resource at the end of one block, and the
-Execute-Around Method idiom for the case where a resource's entire
-open/use/close sequence is common enough across call sites that it belongs
-in one library method instead of being retyped at every call site.
+C++'s RAII ties a resource to an object and releases it in a destructor the compiler calls when the scope ends. Java has no destructor. `finalize()` never promised a schedule: the JVM called it when the collector got to the object, if ever. Java's answer is two explicit idioms:
+
+| Idiom | Use when |
+| --- | --- |
+| try-with-resources over `AutoCloseable` | one block opens, uses and releases one resource |
+| Execute-Around Method | the whole open, use and close sequence repeats across call sites and belongs in one library method |
 
 {% include excalidraw.html name="05-resource-lifecycle" caption="Figure 5.1: a try-with-resources scope guarantees close() runs on both the normal exit and an exception unwinding the block, the same guarantee a hand-written try/finally gives when every exit path remembers to ask for it." %}
 
 ## The domain: three shipping resources
 
-The example behind this chapter lives in `examples/05-resource-management`,
-and it carries three resources with three different lifetime shapes.
-`CarrierConnection` is a connection to a carrier's booking API, implementing
-`AutoCloseable` directly:
+Three resources, three lifetime shapes:
+
+| Resource | Lifetime | Release |
+| --- | --- | --- |
+| `CarrierConnection` | one manifest submission | try-with-resources |
+| `BatchLedgerWriter` over a `BufferedWriter` | one batch: open, write, commit, close | Execute-Around Method |
+| `TrackingFeedHandle` | days, across many polls | `TrackingFeedRegistry`, closed once |
+
+`CarrierConnection` implements `AutoCloseable` directly:
 
 ```java
 public final class CarrierConnection implements AutoCloseable {
+
     public static final double MAX_WEIGHT_KG = 70.0;
 
     private final String carrierEndpoint;
     private boolean open;
 
-    public static CarrierConnection open(String carrierEndpoint) { /* ... */ }
+    private CarrierConnection(String carrierEndpoint) {
+        this.carrierEndpoint = carrierEndpoint;
+        this.open = true;
+    }
+
+    public static CarrierConnection open(String carrierEndpoint) {
+        Objects.requireNonNull(carrierEndpoint, "carrierEndpoint");
+        if (carrierEndpoint.isBlank()) {
+            throw new IllegalArgumentException("carrierEndpoint must not be blank");
+        }
+        return new CarrierConnection(carrierEndpoint);
+    }
 
     public ManifestReceipt submitManifest(Manifest manifest) throws ManifestRejectedException {
         if (!open) {
             throw new IllegalStateException("connection to " + carrierEndpoint + " is already closed");
         }
+        Objects.requireNonNull(manifest, "manifest");
         if (manifest.weightKg() > MAX_WEIGHT_KG) {
             throw new ManifestRejectedException(carrierEndpoint, manifest.trackingId(), manifest.weightKg(), MAX_WEIGHT_KG);
         }
         return new ManifestReceipt(manifest.trackingId(), carrierEndpoint);
+    }
+
+    public boolean isOpen() {
+        return open;
+    }
+
+    public String carrierEndpoint() {
+        return carrierEndpoint;
     }
 
     @Override
@@ -94,158 +90,91 @@ public final class CarrierConnection implements AutoCloseable {
 }
 ```
 
-`submitManifest` throws the checked `ManifestRejectedException` when a
-parcel exceeds the carrier's weight limit, a realistic failure rather than a
-`RuntimeException` invented to exercise cleanup. `BatchLedgerWriter` wraps a
-real `BufferedWriter` over a ledger file and is also `AutoCloseable`;
-`TrackingFeedHandle` models a live tracking-feed subscription and is the
-resource this chapter leaves outside a per-call try-with-resources block,
-for reasons the "when not to use it" section below covers.
+`submitManifest` throws the checked `ManifestRejectedException` when a parcel is over the carrier's 70 kg limit, a failure the carrier really reports, so cleanup is exercised on a real exception path.
 
 ## Try-with-resources: the compiler generates the release
 
-Before Java 7, the only way to guarantee a resource released on every exit
-path was a `try`/`finally` block, with the release written explicitly in the
-`finally` clause. Try-with-resources retires that boilerplate by replacing
-the `try`/`finally` pair with a declaration inside the `try` statement's own
-parentheses. Any type implementing `AutoCloseable` qualifies:
+Before Java 7, the only guaranteed release was a `try`/`finally` with `close()` in the `finally` clause. Try-with-resources replaces it with a declaration in the `try` statement's parentheses, for any `AutoCloseable`. Since Java 9 the parentheses can also name an effectively final variable declared earlier:
 
 ```java
-try (CarrierConnection connection = CarrierConnection.open(carrierEndpoint)) {
-    ManifestReceipt receipt = connection.submitManifest(manifest);
-    System.out.println("Receipt: " + receipt);
-} catch (ManifestRejectedException e) {
-    System.out.println("Rejected: " + e.getMessage());
-}
-```
-
-The Java Language Specification defines try-with-resources as sugar for the
-`try`/`finally` form, generated by the compiler rather than hand-written.
-That matters for what a reader and a reviewer have to verify. A hand-written
-`finally` clause has a `close()` call a future edit could delete, move above
-a statement that throws, or simply forget to add to a second resource opened
-in the same method; a reviewer checking whether a method leaks a connection
-has to read past the happy path and confirm the `finally` block exists, is
-reachable, and calls `close()` and nothing else that might throw before
-reaching it. Try-with-resources has no `close()` call anywhere in the source
-for a reader to get wrong, because there is nowhere left to put one; the
-resource's own declaration is the only place its release is specified, and
-the compiler is what reads it.
-
-`CarrierConnectionResourceLifecycleTest` proves the guarantee rather than
-asserting it by inspection. A Mockito spy wraps a real `CarrierConnection`,
-and the test runs it through try-with-resources twice, once where
-`submitManifest` returns normally and once where it throws
-`ManifestRejectedException`:
-
-```java
-@Test
-void closesExactlyOnceOnTheExceptionPath() {
-    CarrierConnection connection = spy(CarrierConnection.open("ups-booking.example"));
-
-    assertThatThrownBy(() -> {
+        CarrierConnection connection = CarrierConnection.open("fedex-booking.example");
         try (connection) {
-            connection.submitManifest(new Manifest("PKG-4002", 95.0));
+            ManifestReceipt receipt = connection.submitManifest(new Manifest("PKG-1002", 3.1));
+            System.out.println("Receipt: " + receipt);
+        } catch (ManifestRejectedException e) {
+            System.out.println("Rejected: " + e.getMessage());
         }
-    }).isInstanceOf(ManifestRejectedException.class);
-
-    verify(connection, times(1)).close();
-    assertThat(connection.isOpen()).isFalse();
-}
+        System.out.println("Connection open after the block? " + connection.isOpen());
 ```
 
-`verify(connection, times(1)).close()` is the assertion that matters here,
-not merely that the test ran without an unhandled exception escaping it.
-The exception that `submitManifest` throws propagates out past the
-try-with-resources block exactly as `assertThatThrownBy` expects, and
-`close()` still ran before that propagation reached the test method,
-because the compiler-generated `finally` equivalent sits between the
-`submitManifest` call and the exception's exit from the block, not after it.
+The Java Language Specification defines try-with-resources in terms of the `try`/`finally` form the compiler generates. That changes what a reviewer must check:
+
+| | Hand-written `try`/`finally` | try-with-resources |
+| --- | --- | --- |
+| `close()` call in source | yes, and an edit can delete it, move it below a throwing statement, or miss a second resource | none; the declaration is the release |
+| Reviewer verifies | the `finally` exists, is reachable and calls `close()` before anything that throws | the resource is declared in the parentheses |
+
+When `submitManifest` throws for a 95 kg parcel, `close()` runs exactly once before the exception leaves the block, and the connection reports closed afterward. A Mockito spy on a real `CarrierConnection` verifies the single call on both the normal and the exception path.
 
 ## Why finalizers and the Cleaner API are not the answer
 
-Java has had two generations of garbage-collector-driven cleanup, and
-neither one is a substitute for try-with-resources, for the same underlying
-reason. `Object.finalize()`, present since Java 1.0 and formally deprecated
-for removal starting in Java 9, let a class register a method the garbage
-collector would call before reclaiming an unreachable object. The `Cleaner`
-API, added in Java 9 as `finalize()`'s replacement, registers a cleanup
-action tied to an object's reachability instead of overriding a method, and
-avoids some of `finalize()`'s worse failure modes, like a subclass
-resurrecting a supposedly-dying object by storing a reference to `this`
-inside `finalize()` itself. Both share the one property that disqualifies
-them from this chapter's guarantee: neither runs on a schedule a program can
-rely on. The garbage collector decides when, or whether, to reclaim an
-unreachable object, and a cleanup action tied to that reclamation inherits
-the collector's own timing, which is unspecified by design. A
-`CarrierConnection` that only releases when some future garbage-collection
-cycle happens to visit it might hold its socket open for seconds, minutes,
-or for the rest of a short-lived batch job's entire run, well past the one
-manifest submission that needed it.
+Java has had two generations of collector-driven cleanup:
 
-`Cleaner` and `finalize()` both still have a legitimate, narrow job: a safety
-net that releases a resource a careless caller forgot to close explicitly,
-logging the leak so it gets fixed, not a primary release mechanism a program
-depends on for correctness. The JDK's own `FileInputStream` registers a
-`Cleaner` action precisely in that role, as a backstop behind the `close()`
-method callers are expected to invoke themselves, through try-with-resources
-or otherwise. Writing a shipping resource that relies on `Cleaner` instead
-of implementing `AutoCloseable` and expecting try-with-resources to be used
-would trade a guarantee, cleanup at a specific, compiler-enforced point, for
-a hope, cleanup sometime before the process exits, and no code in this
-chapter's example makes that trade.
+| Mechanism | Status | Weakness |
+| --- | --- | --- |
+| `Object.finalize()` | deprecated in Java 9, deprecated for removal in Java 18 | runs when, or if, the collector visits the object; a subclass can resurrect the object by storing `this` |
+| `java.lang.ref.Cleaner` | added in Java 9 as the replacement | avoids resurrection, but still runs on the collector's schedule |
+
+Neither runs on a schedule a program can rely on. The collector decides when to reclaim an unreachable object, and its timing is unspecified by design. A `CarrierConnection` released only by a future collection might hold its socket for seconds, minutes, or the whole run of a short batch job.
+
+Both have one narrow job: a safety net that releases what a careless caller forgot to close, and logs the leak so it gets fixed. The JDK's `FileInputStream` registers a cleanup action in exactly that role, behind the `close()` callers are expected to invoke. A resource that relies on `Cleaner` instead of `AutoCloseable` trades release at a compiler-enforced point for release sometime before the process exits.
 
 ## The Execute-Around Method: a library owns the sequence
 
-Try-with-resources handles the case where one method opens a resource, uses
-it, and closes it in the same block. `BatchLedgerWriter` surfaces a
-different shape: every place in this codebase that writes a shipment batch
-to the ledger needs to open the writer, write one or more entries, call
-`commit()` to flush them, and close the writer, in that exact order, every
-time. Repeating that four-step sequence at each call site is the same
-boilerplate problem try-with-resources solved for `close()` alone, just one
-level up: now the open, the commit, and the close are all repeated, not just
-the close.
+Every place that writes a shipment batch to the ledger must open the writer, write entries, call `commit()` and close the writer, in that order. Repeating those four steps at each call site is the boilerplate try-with-resources removed for `close()`, one level up.
 
-The Execute-Around Method idiom solves this by moving the whole sequence
-into one method that a caller invokes with only the one step that actually
-varies, what to write, expressed as a lambda. A caller never calls `open()`,
-`commit()`, or `close()` directly, so there is nowhere left for a call site
-to forget the commit or move the close above it:
+The Execute-Around Method moves the sequence into one method, and the caller passes only the step that varies, as a lambda. Callers never call `open()`, `commit()` or `close()`, so none can skip the commit or close too early:
 
 ```java
-LedgerOperations.withLedger(ledgerPath, writer -> {
-    writer.writeEntry(batch);
-    return null;
-});
+            LedgerOperations.withLedger(ledgerPath, writer -> {
+                writer.writeEntry(batch);
+                return null;
+            });
 ```
 
-`LedgerOperations.withLedger` is the library method:
+`LedgerOperations` is the library side:
 
 ```java
-public static <T> T withLedger(Path ledgerPath, LedgerAction<T> action) {
-    return withLedgerWriter(() -> BatchLedgerWriter.open(ledgerPath), action);
-}
+public final class LedgerOperations {
 
-static <T> T withLedgerWriter(WriterSupplier supplier, LedgerAction<T> action) {
-    try (BatchLedgerWriter writer = supplier.open()) {
-        T result = action.writeTo(writer);
-        writer.commit();
-        return result;
-    } catch (IOException e) {
-        throw new LedgerWriteException("ledger write failed", e);
+    private LedgerOperations() {
+    }
+
+    public static <T> T withLedger(Path ledgerPath, LedgerAction<T> action) {
+        return withLedgerWriter(() -> BatchLedgerWriter.open(ledgerPath), action);
+    }
+
+    // Package-private seam: lets the test suite substitute a spy BatchLedgerWriter
+    // for the one withLedger(Path, LedgerAction) would open from disk, so a test can
+    // verify close() runs on the exception path without depending on filesystem state.
+    static <T> T withLedgerWriter(WriterSupplier supplier, LedgerAction<T> action) {
+        try (BatchLedgerWriter writer = supplier.open()) {
+            T result = action.writeTo(writer);
+            writer.commit();
+            return result;
+        } catch (IOException e) {
+            throw new LedgerWriteException("ledger write failed", e);
+        }
+    }
+
+    @FunctionalInterface
+    interface WriterSupplier {
+        BatchLedgerWriter open() throws IOException;
     }
 }
 ```
 
-`withLedger` builds on try-with-resources rather than replacing it; the
-`BatchLedgerWriter` it opens is still released through the same
-compiler-generated guarantee as `CarrierConnection` was in the previous
-section. What Execute-Around adds on top is that `commit()` only runs if
-the caller's `action` returns normally, and `close()` runs whether it does
-or not, both inside one method instead of being re-derived by every caller.
-`LedgerAction<T>` is the functional interface that makes the lambda
-possible:
+`LedgerAction<T>` is the functional interface the lambda implements, and it may throw `IOException`:
 
 ```java
 @FunctionalInterface
@@ -254,146 +183,83 @@ public interface LedgerAction<T> {
 }
 ```
 
-`LedgerOperationsTest` proves the same guarantee this chapter already
-proved for try-with-resources alone, now one level up, by spying on the
-`BatchLedgerWriter` `withLedger` opens internally and forcing the caller's
-lambda to throw:
+Execute-Around builds on try-with-resources rather than replacing it. What it adds is ordering: `commit()` runs only when the action returns normally, and `close()` runs either way. When the action throws an `IOException`, the caller gets a `LedgerWriteException` with the `IOException` as its cause, the writer is closed exactly once, and it's never committed. That last part matters as much as the close: a writer that committed a partial batch before the action failed would record a batch the rest of the system must treat as never written.
 
-```java
-@Test
-void withLedgerClosesExactlyOnceWhenTheActionThrows(@TempDir Path tempDir) throws IOException {
-    BatchLedgerWriter writer = spy(BatchLedgerWriter.open(tempDir.resolve("ledger.csv")));
+Reach for Execute-Around when the whole sequence, not only the close, repeats often enough that one method reads better than a dozen near-identical blocks. A resource opened and closed in one place needs only try-with-resources.
 
-    assertThatThrownBy(() -> LedgerOperations.withLedgerWriter(() -> writer, w -> {
-        w.writeEntry(new ShipmentBatch("BATCH-12", 1, 2.0));
-        throw new IOException("carrier portal rejected the batch upload");
-    })).isInstanceOf(LedgerWriteException.class)
-            .hasCauseInstanceOf(IOException.class);
-
-    verify(writer, times(1)).close();
-    assertThat(writer.isCommitted()).isFalse();
-}
-```
-
-`writer.isCommitted()` staying `false` is as important as `close()` being
-called exactly once. A ledger writer that commits a partial write before
-discovering the action failed would report a batch as recorded that the
-rest of the system should treat as never having happened; `withLedger`'s
-ordering, commit only after the action returns, close no matter what,
-is what keeps a failed write from masquerading as a successful one. Execute-Around
-is worth reaching for exactly when this sequence, not just the close, is
-repeated often enough that a shared method reads more clearly than a dozen
-near-identical `try`/`finally` blocks scattered across the codebase; a
-resource opened and closed in exactly one place in the entire program has
-no such duplication to remove, and try-with-resources alone already covers
-it without the extra indirection of a lambda-taking library method.
-
-> **AI sidebar.** Ask an LLM pairing partner to "release this resource
-> safely" against a class that is not `AutoCloseable` and a common result
-> reaches for a `finalize()` override or, on a newer suggestion, a
-> `Cleaner.register()` call, because both appear in enough older Java
-> material that the pattern comes up readily, and neither mention in a
-> prompt about "releasing a resource" that specified what schedule the
-> release needs to run on. Read a generated cleanup suggestion for that gap
-> specifically: does it still run `close()` from the method that acquired
-> the resource, via a `try`/`finally` or a try-with-resources block, with
-> the garbage-collector-driven method standing in only as a backstop behind
-> it, or does it lean on `finalize()` or `Cleaner` as the only release path
-> at all? A generated class whose sole cleanup mechanism is tied to garbage
-> collection has reached for a safety net as a primary mechanism, and it
-> will hold the resource open for an unpredictable stretch of program time
-> that a reviewer cannot bound by reading the code.
+> **🤖 Explore with your agent**
+>
+> "In `examples/05-resource-management`, add a `CarrierOperations.withConnection(String carrierEndpoint, ConnectionAction<T> action)` Execute-Around method for `CarrierConnection`, where `ConnectionAction<T>` is a `@FunctionalInterface` whose method may throw `ManifestRejectedException`. Open the connection with `CarrierConnection.open` inside a try-with-resources block so `close()` runs on every path. Don't override `finalize()`, don't register a `Cleaner`, and don't call `close()` by hand. Add JUnit 5 tests with a Mockito spy, in the style of `LedgerOperationsTest`, that verify `close()` runs exactly once when the action returns and when it throws."
+>
+> Check: `mvn -q -f examples/05-resource-management/pom.xml test -Dtest='CarrierConnectionResourceLifecycleTest,LedgerOperationsTest'` still passes, and the new method contains no `close()` call.
 
 ## When not to use a per-call try-with-resources block
 
-Try-with-resources and the Execute-Around Method both assume the same
-shape: a resource acquired, used, and released inside one call, by one
-owner. That shape is wrong for a resource whose useful life is supposed to
-span many calls, which is exactly what `TrackingFeedHandle` models. A
-subscription to a carrier's live tracking feed is opened once when a
-shipment enters transit and polled repeatedly, by different parts of the
-system, until the shipment is delivered days later. Wrapping each poll in
-its own `try (TrackingFeedHandle handle = TrackingFeedHandle.subscribe(endpoint))`
-block would open and immediately close a fresh subscription on every single
-poll, paying the carrier's subscription setup cost again and again for a
-feed that should have stayed open the whole time.
+Both idioms assume one owner acquires, uses and releases a resource inside one call. That's wrong for `TrackingFeedHandle`. A subscription to a carrier's live feed opens when a shipment enters transit and is polled by different parts of the system until delivery, days later. Wrapping each poll in its own `try (TrackingFeedHandle handle = TrackingFeedHandle.subscribe(endpoint))` would open and close a subscription per poll and pay the carrier's setup cost every time.
 
-`TrackingFeedRegistry` is the shape that fits instead: one object owns a
-pool of handles, one per carrier endpoint, for as long as the application
-itself runs, and callers borrow a handle without ever closing it
-themselves:
+`TrackingFeedRegistry` owns one handle per carrier endpoint for as long as the application runs. Callers borrow a handle and never close it:
 
 ```java
-public TrackingFeedHandle handleFor(String carrierEndpoint) {
-    return handles.computeIfAbsent(carrierEndpoint, TrackingFeedHandle::subscribe);
-}
+public final class TrackingFeedRegistry implements AutoCloseable {
 
-@Override
-public void close() {
-    handles.values().forEach(TrackingFeedHandle::close);
-    handles.clear();
+    private final Map<String, TrackingFeedHandle> handles = new ConcurrentHashMap<>();
+
+    public TrackingFeedHandle handleFor(String carrierEndpoint) {
+        Objects.requireNonNull(carrierEndpoint, "carrierEndpoint");
+        return handles.computeIfAbsent(carrierEndpoint, TrackingFeedHandle::subscribe);
+    }
+
+    public int openHandleCount() {
+        return handles.size();
+    }
+
+    @Override
+    public void close() {
+        handles.values().forEach(TrackingFeedHandle::close);
+        handles.clear();
+    }
 }
 ```
 
-`TrackingFeedRegistryTest` confirms two calls to `handleFor` with the same
-carrier endpoint return the identical handle instance, not a new
-subscription each time, and that closing the registry releases every
-pooled handle in one pass rather than requiring each caller to track
-whether it was the last one still using a given feed. The registry itself
-is still `AutoCloseable`, and still gets closed with try-with-resources,
-once, at the point the whole application shuts down; what changed is the
-scope that owns the resource, not whether `AutoCloseable` and deterministic
-release still apply. The same reasoning extends past tracking feeds to any
-pooled handle, a database connection borrowed from a connection pool, a
-thread borrowed from an executor's pool, where the pool, not the borrowing
-call, is the thing that should decide when the underlying resource actually
-releases. Reach for a per-call try-with-resources block when one call site
-is the resource's entire life. Reach for a registry or a pool, closed once
-at a coarser scope, the moment a resource's useful life is supposed to
-outlast the call that first asked for it.
+Two calls for the same endpoint return the same handle, and closing the registry releases every handle in one pass, so no caller tracks whether it was the last user of a feed. The registry is still `AutoCloseable` and still closed with try-with-resources, once, at shutdown:
+
+```java
+        try (TrackingFeedRegistry registry = new TrackingFeedRegistry()) {
+            TrackingUpdate first = registry.handleFor("fedex-booking.example").poll("PKG-1001");
+            TrackingUpdate second = registry.handleFor("fedex-booking.example").poll("PKG-1002");
+            System.out.println("First poll:  " + first);
+            System.out.println("Second poll: " + second);
+            System.out.println("Open handles while the registry is in use: " + registry.openHandleCount());
+        }
+```
+
+The owning scope changed; deterministic release didn't. The same holds for any pooled resource, such as a database connection from a pool or a thread from an executor: the pool, not the borrower, decides when the resource releases.
+
+| Resource's life | Owner |
+| --- | --- |
+| one call site | a per-call try-with-resources block |
+| outlasts the call that first asked for it | a registry or pool, closed once at a coarser scope |
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this loop.
-From the repository root, the aggregator picks up
-`examples/05-resource-management` automatically:
+From the repository root, through the aggregator, or standalone:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
-
-This example is also standalone-buildable from its own directory:
 
 ```sh
 cd examples/05-resource-management
 mvn test
 ```
 
-Either path runs the same 25 JUnit 5 cases, asserted with AssertJ, including
-two Mockito-spy suites that verify `close()` runs exactly once on both the
-normal and the exception path, for `CarrierConnection` directly and for the
-`BatchLedgerWriter` that `LedgerOperations.withLedger` opens internally.
-Observed locally on Fedora with Temurin 25:
-
-```
-Tests run: 25, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see every idiom run against the shipping domain rather than just reading
-an assertion that says cleanup happened, run the example's own demo script:
+All 24 tests pass, including Mockito spies that verify `close()` runs exactly once on the normal and exception paths, for `CarrierConnection` and for the `BatchLedgerWriter` that `withLedger` opens. Run the demo:
 
 ```sh
 examples/05-resource-management/demo.sh
 ```
 
-It releases a connection with try-with-resources on the normal path,
-releases a second connection with try-with-resources on a path
-`ManifestRejectedException` unwinds, writes and commits a ledger batch
-through the Execute-Around Method, shows that same method closing the
-writer when the action throws, and finally polls a pooled tracking-feed
-handle twice before closing the whole registry at once:
+It releases a connection on the normal path and on a path `ManifestRejectedException` unwinds, commits a ledger batch through the Execute-Around Method, shows the writer closing when the action throws, and polls a pooled feed handle twice before closing the registry:
 
 ```
 == Java 25: try-with-resources, normal path ==
@@ -417,11 +283,10 @@ Open handles while the registry is in use: 1
 Registry closed; every pooled handle released at once, not per call.
 ```
 
-"Open handles while the registry is in use: 1" is the detail worth reading
-twice: two different tracking ids were polled, through the same carrier
-endpoint, and the registry opened exactly one subscription for both, not
-two, because `handleFor` returns the same pooled handle every time it is
-asked for the same endpoint.
+Two tracking ids were polled through one carrier endpoint, and the registry opened one subscription for both. Two experiments, each in a scratch copy:
+
+- **Drop try-with-resources from `withLedgerWriter`.** Open the writer with a plain assignment and call `close()` after `commit()`. The exception-path close check fails: when the action throws, the writer is never closed.
+- **Subscribe on every call.** Make `handleFor` call `TrackingFeedHandle.subscribe` each time instead of `computeIfAbsent`. The handle-reuse check fails, because two calls for one carrier return two subscriptions.
 
 ## For deeper coverage
 

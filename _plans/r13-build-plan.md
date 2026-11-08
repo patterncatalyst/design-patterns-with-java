@@ -47,7 +47,7 @@ front-matter `layout: tutorial`, `sectionid: docs`, `part: appendices`,
   completeness ledger: every GoF pattern (23), the 5 SOLID principles, and the Java
   idioms the book treats as first-class, each mapped to the force that justifies it
   and linked to its chapter via `{{ '/docs/NN-slug/' | relative_url }}`. Mirror the
-  C++ Appendix E (`/home/rsedor/Dev/cpp-design-patterns/_docs/37-appendix-e-pattern-to-force-reference.md`)
+  C++ Appendix E (`~/Dev/cpp-design-patterns/_docs/37-appendix-e-pattern-to-force-reference.md`)
   but with Java idioms and the Java chapter slugs.
 
 ## Steps

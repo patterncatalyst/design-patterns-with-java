@@ -12,55 +12,21 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- Name the force both patterns answer: client code that needs an object
-  without needing to know, or name, the concrete class that produces it.
-- Build an Abstract Factory that hands out a family of related products per
-  region, and explain why building the family from one factory call is what
-  keeps the family internally consistent.
-- Resolve a concrete factory at runtime with a static factory method backed
-  by a `Supplier<T>` registry, and say what that registry buys you over a
-  hand-written `switch`.
-- Build a Factory Method as a protected hook inside a fixed creator
-  sequence, and tell it apart from Abstract Factory by what each one
-  varies: one product per call versus a whole family per call.
-- Recognize when either pattern is solving a problem a constructor call
-  already solves, and say what to write instead.
+- Say when client code needs an object without naming its concrete class.
+- Build an Abstract Factory that hands out a matching family of products per region from one call.
+- Resolve a concrete factory at runtime with a static factory method, backed by a `switch` expression or a `Supplier<T>` registry.
+- Build a Factory Method as a protected hook inside a fixed creator sequence, and tell it from Abstract Factory by what each varies.
+- Recognize when a constructor call is enough.
 
 ## Why this matters
 
-A shipment leaving a regional hub needs three documents that all have to
-agree with each other: a shipping label in that region's own format, a rate
-quote computed by that region's own pricing rule, and a customs declaration
-filled out under that region's own compliance scheme. Mix a label from one
-region with a customs declaration from another and the result is not a
-smaller bug. It is a parcel a customs officer rejects at the border, carrying
-paperwork for a jurisdiction it never entered.
+A shipment leaving a regional hub needs three documents that agree: a label in the region's format, a rate from the region's pricing rule, and a customs declaration under the region's compliance scheme. A label from one region with a customs form from another is a parcel rejected at the border.
 
-That is a force: the code that hands a shipment to a
-region should never have to know which region it is talking to, and
-whichever three documents it gets back have to come from the same region
-every time. Abstract Factory is the Gang of Four's name for resolving
-exactly this force. A single factory call produces every member of a
-related family at once, so nothing downstream of that call can end up
-holding a mismatched set.
-
-Factory Method answers a narrower version of the same underlying problem:
-client code that needs one object without naming its concrete class. Before
-a shipment can leave a hub it has to pass an inspection, and which checklist
-that inspection runs depends on whether the shipment carries hazardous
-materials or not. The sequence that runs the inspection never changes:
-validate the shipment, run a checklist, judge the result from the
-checklist's own log. Only the one step that decides which checklist to
-build does, and that decision belongs to a subclass, not to an `if`
-statement the sequence would otherwise have to carry.
+Before it leaves, the shipment also passes an inspection whose checklist depends on whether it carries hazardous materials. The inspection sequence never changes; only the checklist does.
 
 {% include excalidraw.html name="12-factory-family-selection" caption="Figure 12.1: ShippingToolkits.forRegion() resolves one ShippingToolkit from a Region value; the chosen toolkit's whole family of LabelFormatter, RateTable, and CustomsForm reaches RegionalShippingDesk together, from one factory call." %}
 
-## The domain: three regions, one shared desk
-
-The example behind this chapter lives in `examples/12-factories`. A
-`Shipment` carries a destination country, a weight, a declared value, and
-the `Region` it departs from:
+A `Shipment` carries a destination country, a weight, a declared value and the `Region` it departs from:
 
 ```java
 public record Shipment(
@@ -82,20 +48,25 @@ public record Shipment(
 }
 ```
 
-Three regions back this example: `NORTH_AMERICA`, `EUROPEAN_UNION`, and
-`ASIA_PACIFIC`. Each one implements the same three roles with its own rules.
-North America charges a flat base plus a per-kilogram rate and asks for a
-USMCA certificate of origin. The European Union charges a weight-tiered rate
-with a VAT handling fee folded in and asks for an EORI-number declaration.
-Asia-Pacific prices by a declared-value tier and asks for an HS tariff-code
-declaration. Neither region's pricing rule or paperwork format matters on
-its own. What matters is that `RegionalShippingDesk`, the client this
-chapter builds toward, never has to know any of the three exist.
+| Region | Rate | Customs |
+| --- | --- | --- |
+| `NORTH_AMERICA` | Flat base plus per kilogram | USMCA certificate of origin |
+| `EUROPEAN_UNION` | Weight-tiered plus a VAT handling fee | EORI-number declaration |
+| `ASIA_PACIFIC` | Declared-value tier | HS tariff-code declaration |
 
-## Abstract Factory: a family that must match
+## Pattern: Abstract Factory
 
-Three product interfaces describe what the desk needs, with no mention
-anywhere of a specific region:
+### The problem
+
+`RegionalShippingDesk` needs a label formatter, a rate table and a customs form. If it builds each one with its own region check, nothing stops it from holding a mismatched set, and every new region means editing the desk.
+
+### The solution
+
+An **Abstract Factory** creates a whole family of related products from one object, so a client holding one factory can't end up with products from different families.
+
+### How Java models it
+
+Three product interfaces name no region:
 
 ```java
 public interface LabelFormatter {
@@ -111,9 +82,7 @@ public interface CustomsForm {
 }
 ```
 
-`ShippingToolkit` is the Abstract Factory itself: one interface declaring
-one creation method per product above, so a single implementation is a
-promise that all three products it returns belong to the same region.
+`ShippingToolkit` is the factory, one creation method per product. An implementation promises that all three belong to one region:
 
 ```java
 public interface ShippingToolkit {
@@ -123,14 +92,7 @@ public interface ShippingToolkit {
 }
 ```
 
-`NorthAmericaToolkit`, `EuropeanUnionToolkit`, and `AsiaPacificToolkit` each
-implement all three methods, returning that region's own concrete products.
-`EuropeanUnionToolkit.rateTable()` returns an implementation that folds a
-VAT handling fee into a weight-tiered base; `EuropeanUnionToolkit.customsForm()`
-returns one that writes an EORI-number declaration carrying the same hub
-code the label formatter stamped on the label. The product classes
-themselves stay package-private inside each toolkit's own file, because
-nothing outside that file is ever meant to name them:
+`NorthAmericaToolkit`, `EuropeanUnionToolkit` and `AsiaPacificToolkit` each return their region's products. The products are `private` records nested in each toolkit, because nothing outside it should name them. The EU label and customs form carry the same hub code:
 
 ```java
 public final class EuropeanUnionToolkit implements ShippingToolkit {
@@ -162,14 +124,11 @@ public final class EuropeanUnionToolkit implements ShippingToolkit {
 }
 ```
 
-A nested `record` works well here precisely because each product is
-stateless once its hub code is fixed: no inheritance, no mutable fields, and
-an `equals`/`hashCode` pair a test can call without writing either by hand.
+A record suits a product that's stateless once its hub code is fixed: no inheritance, no mutable fields, and generated `equals` and `hashCode`.
 
-## The client: depends only on the abstractions
+### The client
 
-`RegionalShippingDesk` is the object that uses a region's three products. Its
-constructor builds all three from one factory in one call:
+`RegionalShippingDesk` builds all three products from one toolkit in its constructor:
 
 ```java
 public final class RegionalShippingDesk {
@@ -193,23 +152,11 @@ public final class RegionalShippingDesk {
 }
 ```
 
-That constructor is the one place the guarantee gets made. Nothing in
-`RegionalShippingDesk` names `EuropeanUnionToolkit` or either of the other
-two concrete toolkits, and nothing in `process()` can reach past the three
-interface fields to ask which region produced them. A fourth region added
-next quarter needs its own toolkit and its own three product classes, and
-`RegionalShippingDesk` does not change at all, because it was never written
-against a concrete region in the first place. The example's own test suite
-checks this directly with a mock `ShippingToolkit`: the constructor calls
-`labelFormatter()`, `rateTable()`, and `customsForm()` exactly once each,
-and `process()` never calls any of them again, no matter how many shipments
-it handles afterward. The family is fixed the moment the desk is built, not
-reassembled on every call.
+The constructor is the one place the guarantee is made. It calls each creation method exactly once, and `process()` never goes back to the factory, so the family is fixed when the desk is built. The desk names no concrete toolkit; a fourth region is a new toolkit with its own three products, and the desk doesn't change.
 
-## A static factory method, backed by a Supplier registry
+### Choosing the toolkit at runtime
 
-`ShippingToolkits.forRegion(Region)` is the static factory method a checkout
-calls once per shipment, after reading which hub it departs from:
+`ShippingToolkits.forRegion(Region)` is the static factory method checkout calls after reading the departure hub:
 
 ```java
 public final class ShippingToolkits {
@@ -233,15 +180,7 @@ public final class ShippingToolkits {
 }
 ```
 
-A `Map<Region, Supplier<ShippingToolkit>>` is a different
-shape from a `Map<Region, ShippingToolkit>`, and the difference matters. The map holds a recipe for
-building a toolkit, not a shared toolkit instance, so each call to
-`forRegion` constructs a fresh one with its own hub code, and adding a
-fourth region means adding one more map entry, never touching the method
-body that resolves it. The same decision, which concrete type to build at
-runtime, could just as well be written as a `switch` expression over the
-closed set of three regions, which is the simpler shape worth reaching for
-first when the set is small and fixed:
+The map holds a recipe, not a shared instance, so each call builds a fresh toolkit, and a toolkit is built only when its region is asked for. `ShippingToolkits.forRegionName` resolves a configuration string such as `"north america"` to the same toolkit. For a small closed set, a `switch` expression is the simpler first choice:
 
 {% include codetabs.html langs="Switch expression|Supplier registry" %}
 
@@ -274,27 +213,22 @@ public static ShippingToolkit forRegion(Region region) {
 }
 ```
 
-Both columns resolve the same three regions to the same concrete toolkits,
-which the example's test suite checks by asserting that a toolkit looked up
-by `Region.NORTH_AMERICA` and one looked up by the string `"north america"`
-through `ShippingToolkits.forRegionName` quote an identical shipment
-identically. Reach for the `switch` expression when the set of concrete
-types is closed and small enough that one method body stays readable at a
-glance. Reach for the `Supplier<T>` registry when the set can grow without
-a matching edit to the method that resolves it, which is also the shape to
-reach for when a toolkit's construction needs to stay lazy, deferred until
-a region is requested rather than built eagerly for every region
-whether or not a shipment ever uses it.
+| Use | When |
+| --- | --- |
+| `switch` expression | The set is closed and small, one team owns it, and you want the compiler to catch a missing case. |
+| `Supplier<T>` registry | The set grows without editing the lookup, for example from a plugin or configuration-driven module. |
 
-## Factory Method: one product, decided by shipment category
+## Pattern: Factory Method
 
-Factory Method solves a narrower problem than Abstract Factory, and the
-inspection workflow in this same example shows the difference directly.
-Before a shipment leaves a hub it has to pass an inspection, and which
-checklist runs depends on whether the shipment is a standard parcel or a
-hazardous-materials shipment. The sequence that runs the inspection never
-changes: validate the shipment, run one checklist, judge pass or fail from
-the checklist's own log.
+### The problem
+
+Every inspection validates the shipment, runs one checklist and judges pass or fail from the checklist's log. A standard parcel needs packaging and declared-value checks. A hazardous shipment adds a placard check, a segregation-group check and a check against destinations that embargo hazardous imports. An `if` on the category inside the sequence would tie every new category to an edit of the sequence.
+
+### The solution
+
+A **Factory Method** is a hook in a fixed sequence that a subclass overrides to decide which one product the sequence uses.
+
+### How Java models it
 
 ```java
 public abstract class ShipmentInspector {
@@ -313,24 +247,7 @@ public abstract class ShipmentInspector {
 }
 ```
 
-`createChecklist()` is the factory method: a single protected hook that
-returns one product, not a family of three. `inspect()` is marked `final`
-and calls that hook once, in the middle of a sequence it otherwise owns
-outright. `StandardShipmentInspector` overrides `createChecklist()` to
-return a `StandardInspectionChecklist`, which checks packaging integrity and
-declared value and nothing more. `HazmatShipmentInspector` overrides the
-same method to return a `HazmatInspectionChecklist`, which adds a placard
-check, a segregation-group check, and a check against a short list of
-destinations that embargo hazardous imports. Neither subclass touches
-`inspect()`: the validation, the sequence, and the pass-or-fail judgment are
-inherited unchanged, and the only thing that varies between a standard and
-a hazmat inspection is which one product `createChecklist()` hands back.
-
-`ShipmentInspectors.forCategory(ShipmentCategory)` is the static factory
-method that resolves which inspector subclass a shipment category needs,
-written as an exhaustive `switch` expression over the two-member
-`ShipmentCategory` enum, the same idiom this chapter's region lookup used
-in its simpler form:
+`createChecklist()` returns one product. `inspect()` is `final` and calls it once. `StandardShipmentInspector` returns a `StandardInspectionChecklist`; `HazmatShipmentInspector` returns a `HazmatInspectionChecklist`. Neither touches `inspect()`. `ShipmentInspectors.forCategory` picks the subclass with an exhaustive `switch` over the two-member `ShipmentCategory`:
 
 ```java
 public static ShipmentInspector forCategory(ShipmentCategory category) {
@@ -341,76 +258,49 @@ public static ShipmentInspector forCategory(ShipmentCategory category) {
 }
 ```
 
-That is the test worth applying whenever the two patterns in this chapter's
-title seem interchangeable. Abstract Factory varies a whole family of
-related products together, and the family is the unit a caller asks for.
-Factory Method varies exactly one product inside a sequence that a base
-class owns, and the sequence is the thing that stays fixed while a subclass
-decides the one part that does not. `RegionalShippingDesk` needed a family
-of three documents that all had to agree with each other; `ShipmentInspector`
-needed a single decision point inside an otherwise unchanging inspection.
-Reaching for Abstract Factory when only one product varies adds two unused
-creation methods to an interface nobody calls; reaching for Factory Method
-when three related products need to agree with each other forces a caller
-to make three separate calls and trust that it got them all from the same
-place, which is exactly the trust Abstract Factory's single call exists to
-remove.
+### Telling the two apart
 
-> **AI sidebar.** Ask an LLM pairing partner to "add a factory" for a
-> fourth region or a third shipment category, and a common result is a
-> branch added to an existing `if`/`else if` chain or `switch` inside the
-> one method that already resolves every other region, with the new
-> region's rate logic and customs format written inline right there
-> alongside the others. Check the result against the distinction this
-> chapter trained: did the model add a new concrete `ShippingToolkit`
-> implementing the existing interface, leaving `RegionalShippingDesk` and
-> every other toolkit's code untouched, or did it add a branch to
-> `forRegion` that now carries a fourth region's pricing rule as an inline
-> block nobody can test in isolation? A new `NorthAmericaToolkit`-shaped
-> class registered in the `Supplier<T>` map is a correct, idiomatic
-> extension. The same branching habit showing up inside
-> `RegionalShippingDesk` itself, naming a concrete region's toolkit
-> directly instead of depending on `ShippingToolkit`, is the sign the model
-> reached past the abstraction this chapter built and back toward the
-> thing Abstract Factory exists to remove.
+| | Abstract Factory | Factory Method |
+| --- | --- | --- |
+| Varies | A family of related products | One product |
+| Lives in | An interface the client is handed | A protected hook in a base class |
+| Fixed part | The client's use of the family | The base class's sequence |
+| Example | `ShippingToolkit` | `ShipmentInspector.createChecklist()` |
+
+Abstract Factory where one product varies leaves creation methods nobody needs. Factory Method where three products must agree makes the caller make three calls and trust they came from one place, the trust one Abstract Factory call removes.
+
+## When not to use it
+
+| Situation | Write instead |
+| --- | --- |
+| One region, none coming | Construct the label formatter, rate table and customs form directly in `RegionalShippingDesk`. |
+| One way to run the inspection | A method that runs the check inline; add `createChecklist()` when a second category needs a different product at that point. |
+| A three-method factory where two methods have one caller and one implementation | A Factory Method: only one product varies. |
+
+> **🤖 Explore with your agent**
+>
+> "In `examples/12-factories`, add a fourth region as a new `ShippingToolkit` implementation with its own `LabelFormatter`, `RateTable` and `CustomsForm` as private nested records, registered in `ShippingToolkits`' `Supplier<ShippingToolkit>` map. Don't add a branch with inline pricing or customs logic to `forRegion`, and don't change `RegionalShippingDesk`: it must still depend only on `ShippingToolkit` and call each creation method once, in its constructor. Add any new inspection category as a `ShipmentInspector` subclass that overrides only `createChecklist()`, leaving `inspect()` `final`."
+>
+> Check: `mvn -q -f examples/12-factories/pom.xml test -Dtest=RegionalShippingDeskTest,ShippingToolkitsTest`, and confirm `RegionalShippingDesk` names no concrete toolkit.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this
-loop. From the repository root, the aggregator picks up
-`examples/12-factories` automatically:
+From the repository root, or standalone from `examples/12-factories`:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
-
-This example is also standalone-buildable from its own directory:
 
 ```sh
 cd examples/12-factories
 mvn test
 ```
 
-Either path runs the same 30 JUnit 5 cases, asserted with AssertJ and one
-Mockito suite that verifies `RegionalShippingDesk` builds its three products
-from exactly one `ShippingToolkit` call, made once in the constructor:
-
-```
-Tests run: 30, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see both patterns produce real output rather than just reading an
-assertion that says they work, run the example's own demo script:
+All 30 tests pass. To run both patterns:
 
 ```sh
 examples/12-factories/demo.sh
 ```
-
-It processes a shipment through two regional toolkits, looks a toolkit up
-by a configuration string, runs both inspection categories, and finally
-rejects an unrecognized region name:
 
 ```
 == Abstract Factory: two regional toolkits, one client ==
@@ -445,50 +335,18 @@ Hazmat inspection to North Korea (FAILED):
 Rejected unknown region: unknown region name: mars-colony
 ```
 
-The toolkit looked up by name, `"north america"`, quotes the
-identical $15.32 rate and prints the identical label as the toolkit built
-directly from `Region.NORTH_AMERICA`. That agreement is
-`RegionalShippingDesk` depending only on the three product interfaces
-showing up as an observable fact at the terminal, however a
-`ShippingToolkit` reached the desk's constructor.
+The toolkit looked up by name prints the same label and $15.32 rate as the one built from `Region.NORTH_AMERICA`. Two experiments, each in a scratch copy:
 
-## When not to use Factory Method or Abstract Factory
+- **Go back to the factory.** Add a second `toolkit.rateTable()` call to `RegionalShippingDesk`'s constructor. The two checks that the desk calls each creation method once fail.
+- **Return the wrong product.** Make `HazmatShipmentInspector.createChecklist()` return a `StandardInspectionChecklist`. Both hazmat inspection checks fail, including the embargoed-destination one.
 
-Both patterns earn their interface when there is more than one concrete
-class in hand, or clearly coming, and when a caller must not name the
-concrete type itself. Outside that case, both add a layer with nothing
-underneath it.
+## What you can do now
 
-A single region with no second one on any roadmap does not need
-`ShippingToolkit`, three product interfaces, and a one-implementation
-hierarchy under each. It needs a `LabelFormatter`, a `RateTable`, and a
-`CustomsForm` constructed directly in `RegionalShippingDesk`'s own
-constructor, with no interface standing between them and their one caller.
-Introducing the full Abstract Factory shape ahead of a second region
-arriving adds three abstract product interfaces, a lookup method, and a
-registry, all defending against mismatched regional paperwork that cannot
-happen yet because there is nothing to mismatch.
-
-Factory Method fails the same test in a narrower way. An inspection with
-exactly one way to run its one varying step does not need a base class and
-a protected hook; it needs a method that runs the check inline. The moment
-to introduce `createChecklist()` as a factory method is the moment a second
-category, not a second format of the same thing, needs a different product
-at that one point in an otherwise identical sequence. A single
-`InspectionChecklist` with no standard-versus-hazmat distinction anywhere
-in the business rules would make `ShipmentInspector`'s hierarchy pure
-overhead: one base class, one subclass, one override, standing in for what
-could be a single method with no decision to make.
-
-The sharper trap is reaching for Abstract Factory when Factory Method would
-do, or the reverse. A three-method interface where two of the three methods
-have exactly one caller and no second implementation anywhere in the
-codebase is the Abstract Factory shape used to solve a Factory Method
-problem: only one product in that family varies, and the other two methods
-exist purely because the interface declares them. The fix is not to delete
-the interface. It is to identify which force is in play, a single varying
-product inside a fixed sequence or a whole family that must stay
-consistent, and reach for the narrower pattern that names it.
+- Hand a client one `ShippingToolkit` so its products always match.
+- Keep products as private nested records that only their toolkit names.
+- Resolve a factory with a `switch` for a closed set or a `Supplier<T>` registry for a growing one.
+- Vary one product inside a `final` sequence with a protected factory method.
+- Use a constructor when there's only one concrete class.
 
 ## For deeper coverage
 
@@ -496,7 +354,7 @@ consistent, and reach for the narrower pattern that names it.
   Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480)
   (Addison-Wesley): the original Factory Method and Abstract Factory
   entries, including the "family of related or dependent objects" framing
-  this chapter's three regional toolkits build on.
+  the three regional toolkits build on.
 - Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991),
   third edition (Addison-Wesley): Item 1 covers static factory methods as
   an alternative to a public constructor, the idiom behind
@@ -504,7 +362,5 @@ consistent, and reach for the narrower pattern that names it.
 - The official [JUnit 5 documentation](https://junit.org/junit5/docs/current/user-guide/),
   [Mockito documentation](https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html),
   and [AssertJ documentation](https://assertj.github.io/doc/): the testing
-  idiom behind `examples/12-factories`'s suite, which verifies a factory
-  returns the right family and that a client builds it once, not just that
-  the build exits zero.
-- The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); each citation there is a pointer to the full book, not a substitute for reading it.
+  idiom behind `examples/12-factories`.
+- The full reading list lives on the [bibliography page]({{ '/bibliography/' | relative_url }}).

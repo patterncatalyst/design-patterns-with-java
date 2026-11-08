@@ -17,7 +17,7 @@ touched by content executors.
 - **Appendix F — "Programming principles, reviewed in code"**
   (`_docs/40-appendix-f-programming-principles.md`, order 40, `appendix: "F"`,
   `part: appendices`). Full catalogue, same six families as the C++ Appendix F
-  (`/home/rsedor/Dev/cpp-design-patterns/_docs/38-appendix-f-programming-principles.md`
+  (`~/Dev/cpp-design-patterns/_docs/38-appendix-f-programming-principles.md`
   is the template — mirror structure, translate to Java):
   1. Substitutability & responsibility (SOLID recap, cross-link the SOLID chapters by name, no duplication).
   2. Simplicity & scope (KISS, YAGNI, Do The Simplest Thing, Avoid Premature Optimization, Curly's Law).

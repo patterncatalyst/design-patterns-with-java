@@ -12,52 +12,22 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- Build the enum singleton, Joshua Bloch's recommended form, and name the
-  two guarantees the language itself gives it: no second instance via
-  reflection, no custom method needed to survive serialization.
-- Build the initialization-on-demand holder idiom, and explain why it is
-  lazy and thread-safe with no `synchronized` keyword anywhere in the code.
-- Explain, in plain terms, why double-checked locking with a `volatile`
-  field was the historically tricky way to get the same guarantee, and why
-  both modern forms make it unnecessary.
-- Name the concrete cost a global singleton imposes: a hidden dependency no
-  constructor signature announces, and no seam left for a test to
-  substitute something else.
-- Rebuild the identical capability as an abstraction injected by
-  constructor, and prove the substitutability a global cannot offer with a
-  test double.
-- Judge when a singleton is still the right call and when dependency
-  injection is the stronger engineering choice.
+- Build the enum singleton and name what the language guarantees it: no second instance through reflection or serialization.
+- Build the initialization-on-demand holder idiom, and explain why it's lazy and thread-safe with no `synchronized`.
+- Say why double-checked locking needed `volatile`, and why both modern forms retire it.
+- Name the cost of a global singleton: a dependency no signature declares, and no seam for a test.
+- Provide the same capability through constructor injection and substitute a test double for it.
+- Judge when a singleton is still the right call.
 
 ## Why this matters
 
-A carrier rate table has exactly one defensible shape: one copy, loaded
-once, read by every part of a shipping system that needs to quote a price,
-and never mutated after it loads. That is the Gang of Four's Singleton
-intent: ensure a class has only one instance and provide a
-global point of access to it. It is also the single cleanest case for the
-pattern this book will show, because every force that makes Singleton
-risky elsewhere is absent here: the data is read-only, so there is no race
-to protect beyond construction itself, and nothing in the system plausibly
-needs a second, different rate table.
+A carrier rate table has one defensible shape: one copy, loaded once, read by everything that quotes a price, never mutated. That's the clean case for Singleton. The data is read-only, so the only race is construction, and nothing needs a second, different table.
 
-This chapter teaches Singleton in both of the forms Java gives
-you for building it correctly today, then spends the rest of its space on
-the harder and more useful lesson: most collaborators in a real codebase
-are not this clean, and reaching for a global point of access for them
-hides a dependency that fights every test written against it. The
-dependency-inversion work already in this book's toolkit, a constructor
-that declares its collaborator instead of a method that reaches for one,
-is the alternative this chapter builds against a second, more typical
-example, and the one worth reaching for by default.
+Most collaborators aren't that clean. Reaching a global for them hides a dependency that every test then has to work around. A constructor that declares its collaborator is the default worth reaching for.
 
 {% include excalidraw.html name="14-singleton-vs-injected-collaborator" caption="Figure 14.1: a global singleton's callers reach into one shared instance with no parameter announcing it; the injected alternative routes the same capability through a constructor a composition root controls." %}
 
-## The domain: pricing a shipment from a carrier rate table
-
-The example behind this chapter lives in `examples/14-singleton`. A
-`RateLookup` is the one capability every version in this chapter needs: a
-base, per-kilogram rate for a carrier code.
+Every version needs one capability, a base per-kilogram rate for a carrier code:
 
 ```java
 @FunctionalInterface
@@ -66,10 +36,7 @@ public interface RateLookup {
 }
 ```
 
-Both singleton forms below satisfy this same contract, and the rate data
-itself lives in exactly one shared place, `CarrierRates`, so a correction to
-a published rate lands in both idioms at once rather than needing to be
-copied twice:
+The rate data lives once, in `CarrierRates`, so a corrected rate reaches both singleton forms:
 
 ```java
 final class CarrierRates {
@@ -84,16 +51,25 @@ final class CarrierRates {
 }
 ```
 
-Keeping the rate data in one shared utility, the same shared-core move the
-Strategy chapter used for its own pricing math, is what makes this
-chapter's equivalence claims checkable: a test can assert the enum form and
-the holder form answer identically for the same carrier, because both read
-from the same table rather than two tables that happen to agree today.
+## Pattern: Singleton
 
-## The enum singleton
+### The problem
 
-Bloch's recommended form for a type that must have exactly one instance is
-a single-element enum:
+Every part of the shipping system that quotes a price needs the same rate table. Loading a copy per caller wastes the load and allows two copies to drift apart.
+
+### The solution
+
+A **Singleton** ensures a class has exactly one instance and provides a global point of access to it.
+
+| Form | Created | Thread safety from | Reflection and serialization |
+| --- | --- | --- | --- |
+| Enum | When the enum class initializes | Class initialization | Guaranteed by the language |
+| Initialization-on-demand holder | On the first `getInstance()` | Class initialization | Up to the author |
+| Double-checked locking | On the first `getInstance()` | `volatile` plus `synchronized`, written by hand | Up to the author |
+
+### How Java models it
+
+Bloch's recommended form is a single-element enum (*Effective Java*, Item 3):
 
 ```java
 public enum CarrierRateTable implements RateLookup {
@@ -112,27 +88,14 @@ public enum CarrierRateTable implements RateLookup {
 }
 ```
 
-Two guarantees come from the language itself, not from any discipline the
-author of this class has to remember. An enum type can never be
-instantiated a second time through reflection: calling
-`Constructor.newInstance()` on an enum's generated constructor throws
-`IllegalArgumentException` unconditionally, even after `setAccessible(true)`
-strips the usual access check. `CarrierRateTableTest` proves this directly
-rather than asserting it from a specification, by catching the exception
-the JVM actually throws. The second guarantee is about serialization: an
-enum constant serializes by name and deserializes by looking that name back
-up among the enum's declared constants, so there is no custom
-`readResolve()` method to remember and no way for deserialization to
-manufacture a second `INSTANCE`. Every other singleton idiom in Java's
-history has needed an author to get one of these two guarantees right by
-hand. The enum singleton gets both from the compiler.
+The language supplies two guarantees no author has to remember:
 
-## The initialization-on-demand holder idiom
+- **Reflection.** `Constructor.newInstance()` on an enum's constructor throws `IllegalArgumentException`, even after `setAccessible(true)`.
+- **Serialization.** An enum constant serializes by name and deserializes by looking the name up, so there's no `readResolve()` to write and no way to manufacture a second `INSTANCE`.
 
-The enum form constructs `INSTANCE` the moment `CarrierRateTable`'s class
-is loaded, which is fine for data this cheap but is not always what a
-heavier resource needs. The holder idiom defers construction until first
-use, with no lock anywhere in the code that runs after that first call:
+### The holder idiom
+
+The enum builds `INSTANCE` when the enum class initializes. That's fine for cheap data, but a heavier resource may need construction deferred to first use:
 
 ```java
 public final class HolderCarrierRateTable implements RateLookup {
@@ -161,27 +124,11 @@ public final class HolderCarrierRateTable implements RateLookup {
 }
 ```
 
-`HolderCarrierRateTable` loading has no side effect at all. The nested
-`Holder` class, and the `INSTANCE` field inside it, are not touched until
-`getInstance()` runs for the first time, which triggers the JVM to load and
-initialize `Holder`. The thread safety comes directly from the Java
-Language Specification's rules for class initialization: a class's static
-initializers run exactly once, and every thread that triggers or races that
-initialization blocks until it finishes. Two threads calling
-`getInstance()` concurrently for the first time cannot observe two
-different objects, and neither thread pays a locking cost on the tenth
-call, because by then `Holder` has already finished loading and there is no
-lock left to acquire. `HolderCarrierRateTableTest` makes this concrete by
-racing sixteen threads at `getInstance()` simultaneously and asserting that
-every one of them got back the same reference.
+The nested `Holder` isn't initialized until `getInstance()` first touches it. The Java Language Specification runs a class's static initializers exactly once, and every thread that races that initialization waits for it to finish. Sixteen threads calling `getInstance()` at once all get the same reference, and later calls take no lock because there's none left to take.
 
-## What double-checked locking used to cost
+### What double-checked locking cost
 
-Before the holder idiom was common knowledge, the standard way to get lazy,
-thread-safe construction was double-checked locking: check whether the
-instance exists, and only enter a `synchronized` block and construct it if
-it does not, checking a second time inside the lock in case another thread
-got there first.
+The older route to lazy, thread-safe construction checked for the instance, entered a `synchronized` block only if it was missing, and checked again inside:
 
 ```java
 // Needs the field declared volatile for correctness, and still reads as a
@@ -201,28 +148,11 @@ static CarrierRateTable getInstance() {
 }
 ```
 
-The `volatile` modifier is required for correctness here, not decoration.
-Without it, a thread on another CPU core can observe the reference to `instance`
-become non-null before it observes the constructor's writes to that
-object's fields, because the Java Memory Model permits that reordering in
-the absence of a `volatile` or other synchronization. Getting this pattern
-right means remembering `volatile`, remembering the double check, and
-remembering why both are required together, three separate facts a reader
-has to hold at once to trust a class that otherwise looks like four
-ordinary lines of code. The holder idiom gets identical laziness and
-identical thread safety from the class-loading guarantees the JVM already
-provides, with none of those three facts to get right by hand. This is this
-book's first encounter with a Java idiom that an older pattern needed and a
-newer one retires outright: nobody writing a singleton in current Java
-reaches for double-checked locking, because the holder idiom and the enum
-form between them cover every shape that pattern used to serve.
+`volatile` is required. Without it, the Java Memory Model lets another thread see `instance` become non-null before it sees the constructor's writes to the object's fields. Correctness depends on the `volatile`, the second check and knowing why both are needed. The holder idiom gets the same laziness and safety from class initialization, and the enum covers the eager case, so current Java has no use for double-checked locking in a singleton.
 
-## What a singleton costs everywhere else
+### What a singleton costs elsewhere
 
-`CarrierRateTable` earns its shape because the data behind it is read-only
-and nothing in the system needs a second copy. Most collaborators are not
-that lucky, and `WarehousePricingJob` shows what happens when the pattern
-gets reached for anyway:
+`CarrierRateTable` fits because its data is read-only and nothing needs a second copy. `WarehousePricingJob` reaches for it anyway:
 
 ```java
 public final class WarehousePricingJob {
@@ -232,23 +162,19 @@ public final class WarehousePricingJob {
 }
 ```
 
-Nothing in `quoteBaseRate`'s signature, and nothing in this class's
-constructor, reveals that pricing a shipment depends on
-`CarrierRateTable`. A reader has to open the method body to discover it,
-and `WarehousePricingJobTest` demonstrates the practical consequence
-directly: there is no parameter anywhere to substitute a different rate
-source, so the only thing a test can assert is that the job's answer
-matches whatever the real, global table happens to contain right now. A
-failure scenario, a withdrawn carrier, a promotional rate, a rate source
-that is temporarily unavailable, has no seam in this class to exercise it
-through. The dependency is real; it is just invisible everywhere a reader
-or a test would normally look for it.
+Neither the method signature nor the constructor reveals that pricing depends on `CarrierRateTable`; a reader finds out only by opening the method. There's no parameter to substitute another rate source, so a test can only check the job against whatever the global table holds. A withdrawn carrier, a promotional rate or an unavailable rate source has no seam to come through.
 
-## The dependency-injection alternative
+## Pattern: Dependency Injection
 
-`ShippingQuoteService` needs the identical capability, a base rate for a
-carrier code, and gets it the other way: through a constructor parameter
-instead of a static accessor.
+### The problem
+
+`ShippingQuoteService` needs the same base rate, and it must be testable against rates that differ from production: a promotion, a missing carrier, a failing source.
+
+### The solution
+
+**Dependency injection** hands an object its collaborators, usually through the constructor, instead of letting the object reach for them.
+
+### How Java models it
 
 ```java
 public final class ShippingQuoteService {
@@ -268,133 +194,44 @@ public final class ShippingQuoteService {
 }
 ```
 
-`ShippingQuoteService` depends on `RateLookup`, never on
-`CarrierRateTable` or `HolderCarrierRateTable` by name, the same inversion
-the dependency-inversion work earlier in this book trained for a
-notification gateway. Because the dependency arrives as a parameter, a
-caller controls what it points at: production code can hand it
-`CarrierRateTable.INSTANCE` or `HolderCarrierRateTable.getInstance()`
-unchanged, and a test can hand it anything that satisfies `RateLookup`,
-including a Mockito double.
+The service depends on `RateLookup`, never on `CarrierRateTable` or `HolderCarrierRateTable` by name: the Dependency Inversion Principle. Production passes `CarrierRateTable.INSTANCE` or `HolderCarrierRateTable.getInstance()`; a test passes a Mockito double, a one-line lambda or a hand-written fake. The same class, unchanged, quotes correctly against every one.
 
-```java
-@Test
-void quoteMultipliesTheInjectedBaseRateByWeight() {
-    when(rateLookup.baseRateFor("GROUND")).thenReturn(Money.ofCents(200));
-    ShippingQuoteService service = new ShippingQuoteService(rateLookup);
-
-    Money quote = service.quote("GROUND", 5.0);
-
-    assertThat(quote).isEqualTo(Money.ofCents(1_000));
-    verify(rateLookup).baseRateFor("GROUND");
-}
-```
-
-The payoff is not just that this test is short. It is that
-`ShippingQuoteServiceTest` goes on to run the identical class, unchanged,
-against the enum singleton, the holder singleton, and a one-line lambda,
-and every one of those runs passes with zero modification to
-`ShippingQuoteService` itself. `WarehousePricingJob` cannot make that claim
-about anything, because `WarehousePricingJob` has nothing a test, or a
-different composition root, can point somewhere else. Singleton and
-dependency injection are not competing answers to "how many instances
-exist." `CarrierRateTable` and `HolderCarrierRateTable` already settled
-that question correctly: exactly one. They are competing answers to a
-different question, how does code that needs a shared capability get a
-reference to it, and the constructor-injected answer stays substitutable
-no matter how the force behind the capability changes later.
-
-> **AI sidebar.** Ask an LLM pairing partner for "a singleton class for X"
-> and it will reliably hand back a shape close to `CarrierRateTable` or
-> `HolderCarrierRateTable`, because both are well-documented, idiomatic
-> Java and common in training data. What it will not do unprompted is ask
-> whether X is actually a good fit for Singleton in the first place. Check
-> the forces before accepting the shape: is X read-only after it is built,
-> and does anything in the codebase already need, or plausibly will need,
-> to substitute a different X in a test or a different environment. If the
-> answer to the second question is yes, the generated singleton is a
-> maintenance cost wearing a familiar name, and `WarehousePricingJob`
-> is what that cost looks like once a reviewer has to find the hidden
-> dependency by reading every method body. A generated `getInstance()`
-> accessor with no constructor parameter anywhere near it, for a type a
-> test might plausibly need to fake, is the clearest sign the model reached
-> for the familiar shape instead of the one the forces actually call for.
+Singleton and dependency injection answer different questions. The two singletons already settle how many instances exist: one. Injection settles how code that needs the shared instance gets a reference to it, and the answer stays substitutable however the capability changes later.
 
 ## When not to use it
 
-Singleton is the right choice when every one of three forces holds at once: a
-type must have exactly one instance for the life of the process, that
-instance is effectively immutable once constructed, and no caller, present
-or future, plausibly needs to substitute a different one. `CarrierRateTable`
-clears that bar. It is loaded once, never mutated, and a second rate table
-would only ever mean the first one was wrong, not that two valid tables
-need to coexist.
+Singleton fits only when all three hold: one instance for the life of the process, effectively immutable once built, and no caller that will plausibly need a different one. `CarrierRateTable` passes; a second rate table would only mean the first was wrong.
 
-Most collaborators clear at most one of those three forces, and that is
-reason enough to default to dependency injection instead.
-`WarehousePricingJob`'s coupling to `CarrierRateTable.INSTANCE` would have
-cost nothing extra to express as a `RateLookup` constructor parameter, and
-the one thing that coupling takes away, a test's ability to exercise a
-failing or changed rate source, is exactly the thing a real pricing job
-eventually needs to test. The question worth asking before writing
-`INSTANCE` into any class is not "could this reasonably be a singleton" but
-"does anything about this collaborator ever need to be substituted," and if
-the answer is "probably, eventually," the constructor parameter is
-the cheaper decision to make now rather than the expensive one to retrofit
-later once three other classes have already learned to call `getInstance()`
-directly.
+| Situation | Write instead |
+| --- | --- |
+| A collaborator a test or another environment may need to replace | A constructor parameter typed to an interface, like `RateLookup`. Retrofitting it after three classes call `getInstance()` costs more than adding it now. |
+| A global used only to avoid passing a parameter through a few layers | Pass the shared object, or restructure the call chain. A shorter parameter list doesn't pay for hidden coupling and a lost test seam. |
+| A singleton with mutable state | An injected instance whose lifetime the composition root owns. |
 
-A narrower trap sits next to that one: do not reach for Singleton merely to
-avoid passing a parameter down through a few layers of calls. A long
-parameter chain is a legitimate complaint about a method's shape, and the
-fix for it is usually to pass the one object those layers share, or to
-restructure the call chain, not to make that object globally reachable so
-no layer has to mention it. A global point of access that exists only to
-save a few constructor arguments pays the full cost this chapter describes,
-hidden coupling and no test seam, for a benefit that a slightly shorter
-parameter list does not justify.
+> **🤖 Explore with your agent**
+>
+> "In `examples/14-singleton`, refactor `WarehousePricingJob` so it takes a `RateLookup` through its constructor, as `ShippingQuoteService` does, instead of calling `CarrierRateTable.INSTANCE` inside `quoteBaseRate`. Keep `CarrierRateTable` as the single-element enum and `HolderCarrierRateTable` as the holder idiom, both reading `CarrierRates`; don't add double-checked locking or a `synchronized` `getInstance()`. Wire the production singletons in at the composition root only, and add a test that passes a lambda `RateLookup` to the refactored job."
+>
+> Check: `mvn -q -f examples/14-singleton/pom.xml test -Dtest=ShippingQuoteServiceTest,WarehousePricingJobTest`, and confirm `WarehousePricingJob` no longer names `CarrierRateTable.INSTANCE`.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this
-loop. From the repository root, the aggregator picks up
-`examples/14-singleton` automatically:
+From the repository root, or standalone from `examples/14-singleton`:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
-
-This example is also standalone-buildable from its own directory:
 
 ```sh
 cd examples/14-singleton
 mvn test
 ```
 
-Either path runs the same 18 JUnit 5 cases, asserted with AssertJ,
-including a reflection-based proof that the enum singleton rejects a forged
-second instance, a 16-thread race against the holder idiom's
-`getInstance()`, and a Mockito-based suite that substitutes a double for
-`RateLookup` and then reruns the identical service against both production
-singletons and a hand-written fake. Observed locally on Fedora with
-Temurin 25:
-
-```
-Tests run: 18, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see the enum singleton, the holder singleton, the hidden-dependency job,
-and the DI-based service run side by side rather than just reading an
-assertion that says they behave correctly, run the example's own demo
-script:
+All 18 tests pass. To run all four side by side on a `GROUND` shipment:
 
 ```sh
 examples/14-singleton/demo.sh
 ```
-
-It prices the same `GROUND` shipment through all four:
 
 ```
 == Enum singleton: CarrierRateTable ==
@@ -413,15 +250,22 @@ Production service, 12kg GROUND shipment: $21.60
 Promotional service (fake RateLookup), 12kg shipment: $0.12
 ```
 
-The enum singleton, the holder singleton, and the hidden-dependency job all
-agree on `$1.80` per kilogram for `GROUND`, because all three read from the
-same shared `CarrierRates` table. The DI-based service's second line shows
-the one thing none of the other three can do: swap its entire rate source
-for a one-line fake with no change anywhere else.
+The two singletons and the job agree on $1.80 per kilogram because all read `CarrierRates`. Only the injected service can swap its rate source for a one-line fake. Two experiments, each in a scratch copy:
+
+- **Reach for the global.** In `ShippingQuoteService.quote()`, call `CarrierRateTable.INSTANCE.baseRateFor` instead of `rateLookup`. The Mockito and hand-written-fake checks fail; the service can no longer be substituted.
+- **Break the holder.** Make `HolderCarrierRateTable.getInstance()` return `new HolderCarrierRateTable()`. The same-instance check and the 16-thread race check both fail.
+
+## What you can do now
+
+- Build a singleton as a single-element enum, or with a holder class when it must be lazy.
+- Retire double-checked locking in favor of class-initialization guarantees.
+- Spot a hidden global like `CarrierRateTable.INSTANCE` inside a method body.
+- Inject a collaborator through an interface so a test can replace it.
+- Reserve Singleton for one immutable instance nothing needs to substitute.
 
 ## For deeper coverage
 
 - Erich Gamma, Richard Helm, Ralph Johnson, and John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480) (Addison-Wesley): the original Singleton entry, including the intent statement `CarrierRateTable` satisfies.
-- Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991), third edition (Addison-Wesley): Item 3 recommends the single-element enum as the best way to implement a singleton, covering the reflection- and serialization-safety guarantees this chapter's tests prove directly.
-- Robert C. Martin, [*Agile Software Development: Principles, Patterns, and Practices*](https://www.pearson.com/store/p/agile-software-development-principles-patterns-and-practices/P200000003363/9780135974445) (Prentice Hall): the Dependency Inversion Principle `ShippingQuoteService` applies, covered in full in the dependency-inversion chapter earlier in this book.
-- The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); each citation there is a pointer to the full book, not a substitute for reading it.
+- Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991), third edition (Addison-Wesley): Item 3 recommends the single-element enum as the best way to implement a singleton, covering its reflection and serialization safety.
+- Robert C. Martin, [*Agile Software Development: Principles, Patterns, and Practices*](https://www.pearson.com/store/p/agile-software-development-principles-patterns-and-practices/P200000003363/9780135974445) (Prentice Hall): the Dependency Inversion Principle `ShippingQuoteService` applies.
+- The full reading list lives on the [bibliography page]({{ '/bibliography/' | relative_url }}).
