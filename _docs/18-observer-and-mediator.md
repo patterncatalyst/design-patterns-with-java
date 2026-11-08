@@ -278,7 +278,7 @@ TRK-7002: PICKED_UP -> IN_TRANSIT
 TRK-7002: IN_TRANSIT -> DELIVERED
 
 == Observer: closing a subscription stops notification mid-session ==
-Callback ran 1 time(s); subscriber_count() is now 0
+Callback ran 1 time(s); subscriberCount() is now 0
 
 == Mediator: a warehouse event cascades through the coordinator ==
 Carrier's own record of pickups: 1
