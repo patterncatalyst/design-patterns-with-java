@@ -12,68 +12,31 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- Recognize the fat-interface smell the Interface Segregation Principle
-  targets, and split it into focused role interfaces instead.
-- State the Dependency Inversion Principle precisely: both the high-level
-  policy and the low-level detail depend on an abstraction, and explain why
-  that is a stronger claim than "use an interface."
-- Build constructor injection with no framework: a high-level policy holds a
-  reference to an abstraction, and one composition root wires concrete types
-  to it.
-- Build a sealed result type that keeps a rejection's reason in the value a
-  caller already has to inspect, and say what that costs against a plain
-  `Optional`.
-- Name CDI and Spring as the framework alternative to a hand-wired
-  composition root, and say what each one automates.
-- Recognize when segregating an interface or inverting a dependency solves a
-  problem nobody has yet, and say what to write instead.
+- Spot the fat-interface smell the Interface Segregation Principle targets and split it into role interfaces.
+- State the Dependency Inversion Principle precisely: the high-level policy and the low-level detail both depend on an abstraction, which is a stronger claim than "use an interface."
+- Wire constructor injection with no framework: policies hold abstractions and one composition root supplies the concrete types.
+- Build a sealed result type that keeps a rejection's reason in the value the caller inspects, and weigh it against `Optional`.
+- Say what CDI and Spring automate over a hand-wired composition root, and when that pays.
+- Tell when segregating or inverting solves a problem nobody has yet, and what to write instead.
 
 ## Why this matters
 
-An order-fulfillment system has to tell a customer when an order ships, runs
-late, or arrives, and the way it reaches that customer is not fixed. An
-account on file might take email, a phone number might take SMS, and a
-channel that does not exist today will exist eventually. The Single
-Responsibility, Open/Closed, and Liskov Substitution principles already
-named the general force behind a stable design: something will change, and
-the code around it should not have to. Here the thing that changes is the
-delivery mechanism, not the decision to notify, and that split motivates the
-two principles this chapter adds: Interface Segregation (ISP) and
-Dependency Inversion (DIP).
+An order-fulfillment system tells a customer when an order ships, runs late or arrives. The channel isn't fixed: email for one account, SMS for another, and a channel that doesn't exist yet. What changes is the delivery mechanism, not the decision to notify, and that split is what Interface Segregation (ISP) and Dependency Inversion (DIP) handle.
 
-The naive shape for this system reaches for one interface, something like
-`NotificationGateway`, with a method for sending, a method for rendering a
-template, and a method for checking delivery status, and asks every channel
-to implement all three:
+The obvious design is one `NotificationGateway` interface with `send`, `render` and `statusOf`, and every channel implements all three. Email has all three capabilities. An SMS carrier API sends a short plain-text message and reports nothing back, so `SmsGateway` is left with two bad options:
 
-```java
-public interface NotificationGateway {
-    DispatchResult send(OrderEvent event);
-    String render(String templateId, OrderEvent event);
-    DeliveryState statusOf(String dispatchId);
-}
-```
+| `SmsGateway` does | Caller gets |
+| --- | --- |
+| throws from `render` and `statusOf` | must know the concrete type before calling, which defeats the interface |
+| returns `""` or `UNKNOWN` | an answer that looks valid and isn't |
 
-An `EmailGateway` built against this has all three capabilities, so
-implementing it costs nothing extra. An `SmsGateway` does not: a carrier API
-sends a short plain-text message and reports nothing else back. Forced to
-implement `NotificationGateway` anyway, `SmsGateway` has two choices, both
-bad. It can throw from `render` and `statusOf`, which means every caller
-holding a `NotificationGateway` now has to know, out of band, which concrete
-type it actually has before calling those two methods safely, defeating the
-entire point of programming against an interface. Or it can return a
-harmless-looking default, an empty string from `render` or `UNKNOWN` from
-`statusOf` regardless of what actually happened, which is worse: the caller
-gets an answer that looks valid and is not. A fat interface like this one
-manufactures a Liskov violation that segregation makes structurally
-impossible, because there is nothing left to stub.
+Either way the fat interface manufactures a Liskov violation. Segregation removes it, because nothing is left to stub.
 
 {% include excalidraw.html name="04-dependency-inversion" caption="Figure 4.1: DIP inverts the dependency arrow from a high-level policy through an abstraction, not straight to a concrete gateway. ISP splits that abstraction into role interfaces a concrete type implements only where it has the capability." %}
 
 ## The domain: notifying a customer about an order
 
-The example behind this chapter lives in `examples/04-dependency-inversion`.
-`OrderEvent` carries an order ID, a `customerContact`, and a `messageBody`:
+`OrderEvent` carries an order id, a customer contact and a message body:
 
 ```java
 public record OrderEvent(String orderId, String customerContact, String messageBody) {
@@ -87,34 +50,27 @@ public record OrderEvent(String orderId, String customerContact, String messageB
             throw new IllegalArgumentException("messageBody must not be blank");
         }
     }
+
+    public OrderEvent withMessageBody(String renderedBody) {
+        return new OrderEvent(orderId, customerContact, renderedBody);
+    }
 }
 ```
 
-`customerContact` is allowed to be blank. An order placed with
-no contact on file is a real state this domain has to carry, and whether
-that state is worth rejecting is a decision for the code that uses
-`OrderEvent`, not a rule the record enforces on construction. Two small
-enums separate two questions that look similar and are not:
-`DispatchStatus` (`SENT` or `FAILED`) answers whether a channel accepted a
-message right now, and `DeliveryState` (`PENDING`, `DELIVERED`, `FAILED`, or
-`UNKNOWN`) answers what happened to that dispatch later, when someone asks.
+`customerContact` may be blank: an order with no contact on file is a real state, and whether to reject it is the caller's decision, not the record's. Two enums keep two similar questions apart:
+
+| Enum | Answers | Values |
+| --- | --- | --- |
+| `DispatchStatus` | did the channel accept the message now? | `SENT`, `FAILED` |
+| `DeliveryState` | what happened to the dispatch later? | `PENDING`, `DELIVERED`, `FAILED`, `UNKNOWN` |
 
 ## The smell: one interface, every capability
 
-The `NotificationGateway` shown above is worth keeping in view a moment
-longer, because the segregated version that replaces it only reads as a fix
-once the cost of the fat interface is concrete. Picture a third client,
-`DeliveryAuditor`, that only ever checks whether a dispatch landed. Against
-`NotificationGateway`, its constructor would still declare a dependency on
-`send` and `render`, methods its own logic never calls, and its unit test
-would need a fake implementing all three just to satisfy the type. That
-mismatch between what a constructor signature declares and what the class
-actually uses is the cost Interface Segregation is named for.
+Take a third client, `DeliveryAuditor`, which only checks whether a dispatch landed. Against `NotificationGateway` its constructor would still declare `send` and `render`, which it never calls, and its unit test would need a fake implementing all three. A constructor that declares more than the class uses is the cost ISP is named for.
 
 ## Segregating into role interfaces
 
-Three narrow interfaces replace the fat one, each named for the one thing
-it promises:
+Three narrow interfaces replace the fat one, each named for what it promises:
 
 ```java
 public interface MessageSender {
@@ -130,47 +86,44 @@ public interface DeliveryStatusProvider {
 }
 ```
 
-`EmailGateway` implements all three, because it has all three
-capabilities; nothing about ISP forbids a type from satisfying more than one
-role. `SmsGateway` implements exactly `MessageSender`. It never declares
-`class SmsGateway implements TemplateRenderer`, so there is no `render`
-method to stub, no `statusOf` to fake, and no caller that can accidentally
-invoke either one on an SMS channel, because the compiler never offers that
-call in the first place. `GatewayRoleSeparationTest` turns that absence into
-a behavioral assertion, `assertThat(smsGateway).isNotInstanceOf(TemplateRenderer.class)`,
-which fails the moment someone "helpfully" widens `SmsGateway`'s
-implements clause without updating the rest of the codebase to match, a
-regression a Java compiler already catches for any caller that tries to
-treat an `SmsGateway` as a `TemplateRenderer`.
+`EmailGateway` implements all three, because it has all three capabilities; ISP doesn't stop a type from filling several roles. `SmsGateway` implements only `MessageSender`, so there's no `render` to stub, no `statusOf` to fake, and no caller can invoke either on an SMS channel because the compiler never offers the call.
 
-Segregation also changes who needs to depend on what. `DeliveryAuditor` has
-no business depending on `MessageSender` or `TemplateRenderer` at all; it
-needs exactly `DeliveryStatusProvider`, and its constructor now says so
-directly:
+`DeliveryAuditor` now depends on exactly what it uses:
 
 ```java
-public DeliveryAuditor(DeliveryStatusProvider statusProvider) {
-    this.statusProvider = Objects.requireNonNull(statusProvider, "statusProvider");
+public final class DeliveryAuditor {
+
+    private final DeliveryStatusProvider statusProvider;
+
+    public DeliveryAuditor(DeliveryStatusProvider statusProvider) {
+        this.statusProvider = Objects.requireNonNull(statusProvider, "statusProvider");
+    }
+
+    public String auditDelivery(String dispatchId) {
+        DeliveryState state = statusProvider.statusOf(dispatchId);
+        return describeState(state);
+    }
+
+    static String describeState(DeliveryState state) {
+        return switch (state) {
+            case PENDING -> "still in flight";
+            case DELIVERED -> "confirmed delivered";
+            case FAILED -> "confirmed failed";
+            case UNKNOWN -> "no record of this dispatch";
+        };
+    }
 }
 ```
 
-A test for this class mocks one method on one role interface, not three
-methods across a fat one, because the dependency the constructor declares
-is an accurate description of what the class needs.
+Its test mocks one method on one role interface. The `switch` expression covers all four `DeliveryState` constants with no `default`, so a fifth constant without a case is a compile error: "the switch expression does not cover all possible input values". With a single mocked `DeliveryStatusProvider`, checking every state is cheap, and the tests run one case per constant.
 
 ## Dependency inversion: who depends on whom
 
-`OrderNotificationPolicy` is a high-level policy: it knows an order event is
-worth notifying a customer about, and it knows nothing else. It depends on
-`MessageSender`, never on `EmailGateway` or `SmsGateway`. A plain
-`Optional<DispatchResult>` would tell a caller whether the event was sent
-and nothing more, leaving a rejected event and a rejected event for a
-different reason indistinguishable; a sealed `NotificationOutcome` keeps the
-rejection reason in the value a caller already has to inspect, with no
-second call or logging side channel required to recover it.
+`OrderNotificationPolicy` is the high-level policy. It knows an order event is worth telling the customer about, and nothing else. It depends on `MessageSender`, never on `EmailGateway` or `SmsGateway`:
 
 ```java
 public final class OrderNotificationPolicy {
+
     private final MessageSender sender;
 
     public OrderNotificationPolicy(MessageSender sender) {
@@ -190,250 +143,124 @@ public final class OrderNotificationPolicy {
 }
 ```
 
-This policy depends on exactly `MessageSender`. `NotificationOutcome` is a
-small sealed interface:
+The class imports no gateway and calls no gateway constructor. Martin's statement of DIP is that high-level modules shouldn't depend on low-level modules; both depend on an abstraction, and the abstraction doesn't depend on the details. The arrow that would run from policy down to plumbing now stops at `MessageSender`, and `EmailGateway` points at the same interface from below. The policy's tests substitute a Mockito `MessageSender` and never link a real gateway.
+
+`tryNotifyCustomer` returns a sealed type rather than `Optional<DispatchResult>`:
 
 ```java
 public sealed interface NotificationOutcome permits NotificationOutcome.Notified, NotificationOutcome.Rejected {
+
     record Notified(DispatchResult result) implements NotificationOutcome {}
+
     record Rejected(String reason) implements NotificationOutcome {}
 }
 ```
 
-A caller consumes it with an exhaustive pattern-matching switch, and the
-compiler, not a code reviewer, confirms every branch is handled:
+| Return type | A rejected event tells the caller |
+| --- | --- |
+| `Optional<DispatchResult>` | only that nothing was sent |
+| `NotificationOutcome` | why, in the value it already has to inspect, with no second call or log to read |
+
+The caller handles it with an exhaustive pattern-matching `switch`, and the compiler confirms both branches are there:
 
 ```java
-String outcomeDescription = switch (outcome) {
-    case NotificationOutcome.Notified notified -> "Notified: " + notified.result();
-    case NotificationOutcome.Rejected rejected -> "Rejected: " + rejected.reason();
-};
+        String outcomeDescription = switch (outcome) {
+            case NotificationOutcome.Notified notified -> "Notified: " + notified.result();
+            case NotificationOutcome.Rejected rejected -> "Rejected: " + rejected.reason();
+        };
 ```
-
-Notice what is absent from `OrderNotificationPolicy`: no import of
-`EmailGateway`, no `new EmailGateway()` anywhere in this class, and no
-compile-time link between this policy and any specific channel's
-implementation. That is the concrete, measurable payoff DIP buys. The
-dependency that would naturally run from the orchestrating policy down into
-plumbing detail is redirected to stop at `MessageSender`, an abstraction the
-policy's own package defines, not one the gateway package hands it. The
-orchestrating layer becomes testable in isolation from the plumbing layer,
-which is exactly what `OrderNotificationPolicyTest` demonstrates: it
-substitutes a Mockito `MessageSender` double for the abstraction and never
-links against a real gateway. Robert C. Martin's own formulation of DIP is
-that high-level modules should not depend on low-level modules; both should
-depend on an abstraction, and the abstraction should not depend on the
-details. `EmailGateway` implements `MessageSender` rather than being
-depended on directly, so the dependency that used to run from policy to
-concrete gateway now runs from both of them toward the interface.
 
 ## Composing more than one role
 
-`TemplatedOrderNotifier` is a second, independent high-level client that
-renders a template before sending. It declares two dependencies because it
-needs both capabilities:
+`TemplatedOrderNotifier` renders a template before sending, so it declares both roles:
 
 ```java
-public TemplatedOrderNotifier(MessageSender sender, TemplateRenderer renderer, String templateId) {
-    this.sender = Objects.requireNonNull(sender, "sender");
-    this.renderer = Objects.requireNonNull(renderer, "renderer");
-    this.templateId = Objects.requireNonNull(templateId, "templateId");
-}
+    public TemplatedOrderNotifier(MessageSender sender, TemplateRenderer renderer, String templateId) {
+        this.sender = Objects.requireNonNull(sender, "sender");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
+        this.templateId = Objects.requireNonNull(templateId, "templateId");
+    }
 
-public DispatchResult notifyCustomer(OrderEvent event) {
-    String renderedBody = renderer.render(templateId, event);
-    return sender.send(event.withMessageBody(renderedBody));
-}
+    public DispatchResult notifyCustomer(OrderEvent event) {
+        String renderedBody = renderer.render(templateId, event);
+        return sender.send(event.withMessageBody(renderedBody));
+    }
 ```
 
-`TemplatedOrderNotifierTest` mocks `MessageSender` and `TemplateRenderer`
-independently, with no fake that has to implement both roles at once; each
-mock answers exactly the one method `TemplatedOrderNotifier` calls on it,
-and an `ArgumentCaptor` confirms the rendered body, not the original one,
-is what actually reaches the sender.
+Its tests mock `MessageSender` and `TemplateRenderer` separately, with no fake that implements both, and an `ArgumentCaptor` confirms that the rendered body, not the original, reaches the sender.
 
 ## Dependency injection without a framework
 
-Java ships no classpath scanner and no runtime container in the language
-itself. The idiomatic answer for a graph this size is not to build one; it
-is to write a composition root, one place that constructs every concrete
-type exactly once and passes each abstraction's concrete implementation to
-whatever constructor asks for it:
+The Java language has no classpath scanner or container. For a graph this size the idiom is a composition root: one place that constructs each concrete type once and passes it to the constructors that ask for its role. In `Main`:
 
 ```java
-EmailGateway emailGateway = new EmailGateway();
-SmsGateway smsGateway = new SmsGateway();
+        EmailGateway emailGateway = new EmailGateway();
+        SmsGateway smsGateway = new SmsGateway();
 
-OrderNotificationPolicy smsNotifier = new OrderNotificationPolicy(smsGateway);
-TemplatedOrderNotifier emailNotifier = new TemplatedOrderNotifier(emailGateway, emailGateway, "order-delayed");
-DeliveryAuditor auditor = new DeliveryAuditor(emailGateway);
+        OrderNotificationPolicy smsNotifier = new OrderNotificationPolicy(smsGateway);
+        TemplatedOrderNotifier emailNotifier = new TemplatedOrderNotifier(emailGateway, emailGateway, "order-delayed");
+        DeliveryAuditor auditor = new DeliveryAuditor(emailGateway);
 ```
 
-Three things stand out in those five lines. First, `Main` is the only class
-in this example that names a concrete gateway type; every policy class
-depends only on the role interface it needs. Second, `emailGateway` is
-passed in twice, once as a `MessageSender` and once as a `TemplateRenderer`,
-because it is the one concrete type in this graph that satisfies both
-roles; `TemplatedOrderNotifier`'s constructor neither knows nor cares that
-both references resolve to the same object. Third, there is no container,
-no registration step, and no startup phase that resolves a dependency graph
-by reflection; the graph is exactly as deep as these five lines make it, and
-a reader traces every wire by reading top to bottom once.
+- **`Main` is the only class that names a concrete gateway.** Every policy depends on a role interface.
+- **`emailGateway` goes in twice**, as a `MessageSender` and as a `TemplateRenderer`, because it's the one type that fills both roles. `TemplatedOrderNotifier` doesn't know both references are the same object.
+- **No registration or reflection step.** The graph is these five lines, read top to bottom.
 
-CDI, the annotation model Jakarta EE and Quarkus build on, and Spring both
-automate graphs like this one: `@Inject` or `@Autowired` on a constructor
-parameter, paired with a classpath scan at startup, replaces the five
-explicit `new` calls above with a container that resolves the same wiring
-by convention. That machinery earns its cost once a graph grows past what a
-reader can trace by eye, once bindings need to vary by build or test
-configuration from the same registration code, or once object lifetimes
-need scoping rules a flat `main` cannot express, one instance per request,
-for example. None of that is true of this chapter's five-object graph. A
-container also costs something real: another dependency to pin and audit,
-an annotation-driven wiring model a new team member has to learn before
-reading `main` tells the whole story, and a layer of indirection between
-"this type is constructed" and "here is the line that constructs it" that a
-debugger's stack trace does not always make obvious. For a graph wired once
-at startup and read start to finish, the manual composition root is the
-stronger engineering call, and reaching for a container before a graph is
-large enough to need one trades a problem you do not have for a dependency
-you do.
+CDI, the annotation model under Jakarta EE and Quarkus, and Spring automate this wiring: `@Inject` or `@Autowired` on a constructor plus a classpath scan at startup replaces the `new` calls.
 
-## A worked audit: describing a closed set of delivery states
+| | Composition root | CDI or Spring container |
+| --- | --- | --- |
+| Pays off when | the graph fits on one screen and is wired once at startup | the graph outgrows what a reader can trace, bindings differ between test and production, or lifetimes need scopes such as one instance per request |
+| Costs | constructor calls to maintain by hand | a dependency to pin and audit, a wiring model to learn, and indirection between "this type is built" and the line that builds it |
 
-`DeliveryAuditor` turns a `DeliveryState` into a human-readable description
-with a switch expression over all four constants, no default branch needed:
+For this five-object graph the composition root is the better call. A container added before the graph needs one trades a problem you don't have for a dependency you do.
 
-```java
-// Adding a fifth DeliveryState constant without a matching case here is a
-// compile error, not a runtime surprise on whichever dispatch reaches the
-// missing case first.
-static String describeState(DeliveryState state) {
-    return switch (state) {
-        case PENDING -> "still in flight";
-        case DELIVERED -> "confirmed delivered";
-        case FAILED -> "confirmed failed";
-        case UNKNOWN -> "no record of this dispatch";
-    };
-}
-```
-
-`DeliveryAuditorTest` is a parameterized suite over every `DeliveryState`
-constant that checks `describeState` agrees with `auditDelivery`'s own
-answer, rather than hand-writing one expected string per state and hoping
-the two stay in sync on their own. The same role-interface structure that
-makes `DeliveryAuditor` easy to unit test, a single mocked
-`DeliveryStatusProvider`, is what makes exercising every state in the switch
-cheap enough to actually do instead of spot-checking one or two branches.
-
-> **AI sidebar.** Ask an LLM pairing partner to "add dependency injection"
-> to a class and it will often reach for Spring or CDI annotations by
-> reflex, because that shape dominates the training data for Java DI
-> examples, even when nothing in the prompt mentioned a framework and the
-> project has none on its classpath. It will also tend to generate one
-> interface per concrete class and a field for every collaborator typed as
-> the widest possible abstraction, regardless of whether a second
-> implementation is in hand or coming. Check the result against the forces
-> this chapter named: a role interface is worth adding when two or more
-> clients need different capabilities, the way `SmsGateway` and
-> `EmailGateway` differ here, or when a test needs to substitute a double
-> for something a concrete type makes awkward to exercise, not merely
-> because "DI" or "SOLID" appeared in the request. A generated
-> `IEmailGateway` with exactly one implementation and no second one planned
-> is premature abstraction with an interface-shaped costume on, and a
-> generated constructor that reaches for a framework annotation nobody
-> asked for is adding a dependency the codebase does not have yet to solve
-> a wiring problem five lines of plain Java already solve.
+> **🤖 Explore with your agent**
+>
+> "In `examples/04-dependency-inversion`, add a push-notification channel as a `PushGateway` that can send but can't render templates or report delivery state. Implement only `MessageSender`; don't add `TemplateRenderer` or `DeliveryStatusProvider` to it, and don't create a combined gateway interface. Wire it in `Main` with `new OrderNotificationPolicy(pushGateway)`, keeping `Main` the only class that names a concrete gateway. Use no Spring or CDI annotations. Add JUnit 5 tests with AssertJ for its dispatch id, in the style of `SmsGatewayTest`."
+>
+> Check: `mvn -q -f examples/04-dependency-inversion/pom.xml test -Dtest='GatewayRoleSeparationTest,OrderNotificationPolicyTest'` still passes, and no policy class imports `PushGateway`.
 
 ## When not to use it
 
-Both principles in this chapter earn their cost only under specific
-conditions, and both stop paying for themselves well before those
-conditions arrive.
-
-Dependency Inversion is worth the abstraction when more than one
-implementation is in hand or clearly coming, or when a test needs to
-substitute a double for something a concrete type would make slow or
-awkward to exercise directly, a network call, a clock, a real carrier API.
-A service with exactly one notification channel, no second one on any
-roadmap, and no test that would benefit from faking it does not need a
-`MessageSender` interface; it needs a method, or a class called directly by
-name. Introducing an abstraction there adds an interface, a constructor
-parameter, and a reader's detour through a contract to find the one
-implementation that will ever exist, with nothing on the other side of that
-cost to justify it.
-
-Interface Segregation has a matching failure mode in the other direction:
-splitting every method of a two-method interface into its own single-method
-interface because "narrow is good" produces a maze of one-method types a
-reader has to chase across files to understand what a class actually does,
-with no client ever benefiting from the extra seams because every client
-already needed every method. Segregate when two or more clients have
-different needs, the way `SmsGateway` and `EmailGateway` differ in capability
-here; stop segregating once every remaining method on an interface is used
-by every remaining client, because at that point the interface is not fat,
-it is complete, and splitting it further is churn dressed up as a
-principle.
-
-A composition root can overstay its welcome too. The five-line graph in
-`Main` reads clearly today because five lines is all there is to trace. A
-service with forty collaborators, request-scoped lifetimes, and bindings
-that differ between a test binary and a production one is the point where
-CDI's or Spring's machinery stops being overhead and starts being the
-simpler option, because hand-wiring forty constructors by hand is its own
-maintenance burden with none of a container's lifecycle management to show
-for it. Reach for manual wiring while the graph fits on one screen; reach
-for the framework once it stops fitting.
+- **DIP with one implementation.** The abstraction pays when a second implementation is in hand or clearly coming, or when a test must replace something slow or awkward: a network call, a clock, a carrier API. A service with one channel, no second planned and nothing to fake needs a class called by name, not a `MessageSender` interface.
+- **ISP past the point of need.** Splitting a two-method interface into two one-method interfaces because narrow is good gives readers a maze of files and no client a benefit. Segregate when clients need different capabilities, as `SmsGateway` and `EmailGateway` do. Once every client uses every method, the interface is complete, not fat.
+- **A composition root past one screen.** Forty collaborators, request-scoped lifetimes and bindings that differ between test and production make a container the simpler option. Wire by hand while the graph fits on one screen.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this loop.
-From the repository root, the aggregator picks up
-`examples/04-dependency-inversion` automatically:
+From the repository root, through the aggregator, or standalone:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
-
-This example is also standalone-buildable from its own directory:
 
 ```sh
 cd examples/04-dependency-inversion
 mvn test
 ```
 
-Either path runs the same 26 JUnit 5 cases, asserted with AssertJ, including
-a Mockito-based suite that substitutes a `MessageSender` test double for
-`OrderNotificationPolicy` and a parameterized suite that checks
-`DeliveryAuditor`'s switch expression against `auditDelivery`'s own answer
-for every `DeliveryState`. Observed locally on Fedora with Temurin 25:
-
-```
-Tests run: 26, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see the composition root wire two gateways into three high-level
-policies rather than just reading an assertion that says the wiring works,
-run the example's own demo script:
+All 25 tests pass, including Mockito tests that give `OrderNotificationPolicy` a `MessageSender` double and a parameterized test over every `DeliveryState`. Run the demo to see the composition root wire two gateways into three policies:
 
 ```sh
 examples/04-dependency-inversion/demo.sh
 ```
 
-It prints an SMS dispatch, a templated email dispatch, an audit against the
-email gateway's delivery log, and finally the rejection path through the
-sealed `NotificationOutcome`:
+It prints an SMS dispatch, a templated email dispatch, an audit against the email gateway's delivery log, and the rejection path through `NotificationOutcome`:
 
 ```
 SMS dispatch (sms-ORD-1001): Your order has shipped.
 Email dispatch (email-ORD-1002): rendered and sent
 Audit for email-ORD-1002: confirmed delivered
 
-== Sealed outcome that keeps the rejection reason ==
+== Java 25: a sealed outcome that keeps the rejection reason ==
 Rejected: order event has no customerContact to notify
 ```
+
+Two experiments, each in a scratch copy:
+
+- **Widen `SmsGateway`.** Add `DeliveryStatusProvider` to its `implements` clause with a `statusOf` that returns `UNKNOWN`. It compiles, and the role-separation test fails, since SMS can't report delivery.
+- **Add a fifth `DeliveryState`.** Add `RETURNED` to the enum. The build stops at `describeState` with "the switch expression does not cover all possible input values".
 
 ## For deeper coverage
 

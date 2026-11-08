@@ -12,98 +12,46 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- Hide an implementation class behind a public interface and a static
-  factory method, the way `List.of` and `Optional.of` hide theirs, and
-  explain what the package boundary buys you that a public class with a
-  public constructor does not.
-- Use a static factory method to cache a shared instance, return a type the
-  caller never names, or swap an implementation without touching a single
-  caller, and say which of those a plain public constructor cannot do.
-- Build a value type as a `record` with a validating compact constructor,
-  and explain why an immutable field like `Instant` needs no defensive copy
-  where a mutable field like `Date` does.
-- Defend a collection-typed field two ways, `List.copyOf` and
-  `Collections.unmodifiableList`, and say what each one guarantees about a
-  caller's original list and the list a caller receives back.
-- Recognize when a record is the wrong shape for a type, and when a factory
-  behind an interface with a single implementation is solving a problem
-  nobody has yet.
+- Hide an implementation class behind a public interface and a static factory, as `List.of` and `Optional.of` do, and say what the package boundary buys over a public constructor.
+- Use a static factory to cache a shared instance, return a type the caller never names, or swap an implementation without touching a caller.
+- Build a value type as a `record` with a validating compact constructor, and say why an `Instant` field needs no defensive copy where a `Date` would.
+- Defend a collection field with `List.copyOf` or `Collections.unmodifiableList`, and say what each guarantees about the caller's list and the one returned.
+- Recognize when a record is the wrong shape, and when a factory behind a one-implementation interface solves a problem nobody has.
 
 ## Why this matters
 
-A shipping company's tracking system has to answer one question correctly:
-where is this shipment right now, and what happened to it before this
-moment? Answering that means a caller elsewhere in the system, a checkout
-flow, a customer support tool, a billing job, can read a shipment's state
-but cannot rewrite its history. If any caller holding a reference to a
-tracking record can mutate it, two callers racing to update the same
-shipment produce a result nobody asked for, and a bug report six weeks
-later has no way to establish what the record said at the time the dispute
-started. Encapsulation is how a type protects that record: it decides what
-a caller can see, what a caller can change, and what stays hidden well
-enough that changing it later does not break every caller that already
-depends on the type.
+A tracking system answers one question: where is this shipment now, and what happened to it before? A checkout flow, a support tool and a billing job all read a shipment's state, and none may rewrite its history. If any holder of a reference can mutate a tracking record, two callers updating one shipment produce a result nobody asked for, and a dispute six weeks later can't establish what the record said when it started.
 
-Java gives you four distinct tools for this, and they compose. A public
-interface with a package-private implementation is Java's answer to the
-PImpl idiom other languages reach for with a pointer to a hidden struct:
-the caller depends on a contract, and the class that satisfies it can
-change shape entirely without recompiling a single caller. A static
-factory method is how a caller reaches that hidden implementation in the
-first place, and it can do things a public constructor flatly cannot: cache
-and return the same instance every time, return a subtype the caller never
-has to name, or swap which concrete class it hands back based on an
-argument, a configuration value, or nothing at all. Records give a value
-type its equality, its hash code, and its accessors with no extra code to
-write, and because a record's fields are implicitly final, half of what a
-classic value class had to get right by hand is correct the moment the
-type compiles. Defensive copying closes the one hole records do not close
-on their own: a mutable object passed into a constructor, or handed back
-out of a getter, is still a live reference to something the type does not
-own unless the type copies it.
+Java has four tools for drawing that boundary, and they compose:
 
-None of these four tools is optional ornamentation on top of "just write a
-class." Each one answers a specific way an object's internal state can leak
-past the boundary a type is supposed to draw around it, and a shipping
-domain, where a tracking record moves through dozens of hands before a
-package ever arrives, is a system where a leak like that costs real money
-to track down.
+| Tool | Closes this leak |
+| --- | --- |
+| public interface, package-private implementation | callers coupling to a concrete class they can then never change |
+| static factory method | a constructor that must allocate, must name its class, and can't choose an implementation |
+| record | hand-written `equals`, `hashCode`, accessors and non-final fields drifting out of step |
+| defensive copy | a mutable object passed in, or handed out, that the type doesn't own |
 
 {% include excalidraw.html name="06-encapsulation-boundary" caption="Figure 6.1: a caller depends only on the ShippingGateway interface and its static factory. The concrete implementation and the representation it owns live entirely behind the package boundary, free to change without the caller noticing." %}
 
 ## The domain: tracking a shipment without exposing how
 
-The example behind this chapter lives in `examples/06-encapsulation`. A
-`TrackingEvent` is one scan of a shipment: when it happened, where, and
-what state the shipment was in. A `TrackingHistory` is the ordered list of
-every scan recorded so far. A `Manifest` is the bill of lading, a list of
-`ManifestLineItem` values plus when it was prepared. A `Shipment` ties all
-of this together: a tracking id, an origin, a destination, a manifest, and
-a history. Every one of these five types is a record, and every one of
-them is immutable: nothing in this example ever mutates a `Shipment` in
-place. `Shipment.withEvent(event)` returns a brand-new `Shipment` with an
-updated history, and the `Shipment` it was called on is left exactly as it
-was.
+Five records model a shipment:
 
-The gateway that creates and tracks shipments, `ShippingGateway`, is a
-public interface with exactly one method a caller calls to get one: the
-static factory `ShippingGateway.inMemory()`. The class behind
-that factory, `InMemoryShippingGateway`, carries no access modifier at
-all, which in Java means package-private: nothing outside
-`com.patterncatalyst.designpatterns.ch06.shipping` can write its name,
-construct it, or cast a `ShippingGateway` reference to it. A caller that
-wants to create a shipment, look one up, or record a new event depends on
-`ShippingGateway` and nothing else.
+| Record | Holds |
+| --- | --- |
+| `TrackingEvent` | one scan: when, where and the `TrackingStatus` |
+| `TrackingHistory` | every scan so far, in order |
+| `ManifestLineItem` | one line of the bill of lading |
+| `Manifest` | the line items and when the manifest was prepared |
+| `Shipment` | tracking id, origin, destination, manifest and history |
+
+All five are immutable. `Shipment.withEvent(event)` returns a new `Shipment` with a longer history and leaves the original untouched.
+
+`ShippingGateway` creates and tracks shipments. It's a public interface, and callers get one only through the static factory `ShippingGateway.inMemory()`. The class behind it, `InMemoryShippingGateway`, has no access modifier, which makes it package-private: nothing outside `com.patterncatalyst.designpatterns.ch06.shipping` can name it, construct it or cast to it.
 
 ## Public interface, package-private implementation: Java's PImpl
 
-A C++ type hides its representation behind a pointer to an incomplete
-type, the PImpl idiom covered elsewhere in this book's domain for that
-language. Java's version of the same idea needs no pointer indirection at
-all, because Java already separates a type's contract from its
-implementation at the language level: an interface declares what a caller
-can do, and any class, in any package, can satisfy it, but only classes in
-the same package can see an implementation that chooses not to be public.
+C++ hides a representation behind a pointer to an incomplete type, the PImpl idiom. Java needs no pointer, because the language already separates contract from implementation: an interface declares what a caller can do, and an implementation that isn't public is visible only inside its package.
 
 ```java
 public interface ShippingGateway {
@@ -134,41 +82,39 @@ final class InMemoryShippingGateway implements ShippingGateway {
         return shipment;
     }
 
-    // find(...) and recordEvent(...) omitted
+    @Override
+    public Optional<Shipment> find(String trackingId) {
+        return Optional.ofNullable(shipmentsByTrackingId.get(Objects.requireNonNull(trackingId, "trackingId")));
+    }
+
+    @Override
+    public Shipment recordEvent(String trackingId, TrackingEvent event) {
+        Objects.requireNonNull(trackingId, "trackingId");
+        Objects.requireNonNull(event, "event");
+        return shipmentsByTrackingId.compute(trackingId, (id, existing) -> {
+            if (existing == null) {
+                throw new NoSuchElementException("no shipment tracked under " + trackingId);
+            }
+            return existing.withEvent(event);
+        });
+    }
 }
 ```
 
-`InMemoryShippingGateway` has no `public` keyword in front of `final class`,
-and that omission is the whole mechanism. A test file in the same package
-can still construct it directly, which is exactly how this chapter's own
-`ShippingGatewayTest` confirms `ShippingGateway.inMemory()` returns an
-instance of that specific class. A caller in a different package cannot do
-the same thing even if it wanted to; the compiler rejects
-`new InMemoryShippingGateway()` from outside the package with an error, not
-a warning. That is a guarantee a code reviewer does not have to enforce by
-reading every file that touches shipping, because nothing compiles that
-would violate it. `ShippingGatewayContractTest` in this chapter's example
-proves the other half of the same idea: a second implementation,
-written entirely in the test file and never referencing
-`InMemoryShippingGateway`, satisfies the exact same contract and passes
-the exact same assertions. The interface, not the concrete class, is what
-every caller and every alternate implementation agrees on.
+The missing `public` before `final class` is the whole mechanism. Code in the same package, tests included, can still construct the class. From any other package, `new InMemoryShippingGateway()` is a compile error: "InMemoryShippingGateway is not public in com.patterncatalyst.designpatterns.ch06.shipping; cannot be accessed from outside package". A reviewer doesn't have to enforce the boundary by reading every file, because nothing that crosses it compiles.
+
+The interface, not the class, is what callers and alternate implementations agree on. A second implementation written only in test code, never referring to `InMemoryShippingGateway`, passes the same contract tests.
 
 ## Static factory methods: the List.of and Optional.of idiom
 
-`ShippingGateway.inMemory()` is a static factory method, and the pattern
-is older than this chapter's example: `List.of(...)`, `Optional.of(...)`,
-and `Optional.empty()` are all static factories on types whose public
-constructors you have likely never called directly. A static factory can
-do four things a public constructor cannot. It can have a name, so
-`inMemory()` says what it returns in a way `new ShippingGatewayImpl()`
-does not. It can return a subtype of its declared return type, which is
-exactly how it hands back a package-private class through a public
-interface. It can return the same cached instance every time instead of
-allocating a new one, the way `TrackingHistory.empty()` always returns the
-one shared empty history rather than a fresh allocation per call. And it
-can choose which concrete implementation to return based on an argument or
-nothing at all, without a caller's code changing when that choice changes.
+`List.of(...)`, `Optional.of(...)` and `Optional.empty()` are static factories on types whose constructors you've likely never called. A static factory can do four things a public constructor can't:
+
+| A static factory can | Here |
+| --- | --- |
+| have a name | `inMemory()` says what it returns |
+| return a subtype of its declared type | a package-private class through a public interface |
+| return a cached instance | `TrackingHistory.empty()` returns one shared empty history |
+| choose the implementation | a later `inMemory()` or a new factory can return another class with no caller changing |
 
 ```java
 public record TrackingHistory(List<TrackingEvent> events) {
@@ -176,54 +122,40 @@ public record TrackingHistory(List<TrackingEvent> events) {
     private static final TrackingHistory EMPTY = new TrackingHistory(List.of());
 
     public TrackingHistory {
+        Objects.requireNonNull(events, "events");
         events = List.copyOf(events);
     }
 
     public static TrackingHistory empty() {
         return EMPTY;
     }
-    // withEvent(...) and latest() omitted
-}
-```
 
-`TrackingHistory.empty() == TrackingHistory.empty()` is `true`, proven
-directly in `ShippingDemo`'s output: both calls return the identical
-object, not two separate empty lists that happen to be equal. A public
-constructor cannot do this on its own; `new TrackingHistory(List.of())`
-always allocates, no matter how many times it runs.
+    public TrackingHistory withEvent(TrackingEvent event) {
+        Objects.requireNonNull(event, "event");
+        List<TrackingEvent> appended = new ArrayList<>(events);
+        appended.add(event);
+        return new TrackingHistory(appended);
+    }
 
-```java
-public interface ShippingGateway {
-    static ShippingGateway inMemory() {
-        return new InMemoryShippingGateway();
+    public Optional<TrackingEvent> latest() {
+        return events.isEmpty() ? Optional.empty() : Optional.of(events.get(events.size() - 1));
     }
 }
-
-ShippingGateway gateway = ShippingGateway.inMemory();
 ```
 
-The caller's variable is typed `ShippingGateway`, and the concrete
-`InMemoryShippingGateway` class is never named outside its own package.
-That changes what a caller's source code is allowed to know. A caller
-holding a reference typed to a single concrete gateway class is coupled to
-that exact class forever; swapping the storage strategy to a
-database-backed implementation later means either rewriting that class in
-place or changing every caller's declared type. A caller holding a
-`ShippingGateway` reference built through `inMemory()` is coupled to an
-interface with three methods; swapping `InMemoryShippingGateway` for a
-`JdbcShippingGateway` behind a new static factory, or even behind the same
-one, changes zero lines in any caller.
+`TrackingHistory.empty() == TrackingHistory.empty()` is `true`: one object, not two equal ones. `new TrackingHistory(List.of())` allocates every time.
+
+The caller's variable is typed to the interface:
+
+```java
+        ShippingGateway gateway = ShippingGateway.inMemory();
+```
+
+A caller holding a concrete gateway type is coupled to that class, so moving storage to a database means rewriting the class in place or changing every caller's declared type. A caller holding a `ShippingGateway` is coupled to three methods. A `JdbcShippingGateway` behind a new factory, or behind the same one, changes no caller.
 
 ## Records: immutable value types without the ceremony
 
-Before records, building an immutable value type meant writing every
-accessor, `equals`, `hashCode`, and `toString` by hand, and getting all
-four to agree with each other and with the constructor was tedious work a
-reviewer checks line by line rather than trusts on sight. A record retires
-that hand-written ceremony by declaring the state once and deriving all of
-it from the declaration: a record's fields are implicitly `final`, so a
-record can never accidentally grow a mutator its author forgot to leave
-out.
+Before records, an immutable value type meant hand-writing accessors, `equals`, `hashCode` and `toString`, and keeping all four in step with the constructor. A record declares the state once and derives the rest. Its fields are implicitly `final`, so it can't grow a mutator by accident.
 
 ```java
 public record TrackingEvent(Instant occurredAt, String location, TrackingStatus status) {
@@ -238,129 +170,73 @@ public record TrackingEvent(Instant occurredAt, String location, TrackingStatus 
 }
 ```
 
-`occurredAt` is an `Instant`, which has no mutating methods at all, so
-there is no defensive copy to write anywhere in this record: there is no
-way for a caller to reach in and change an `Instant` it already handed
-over, the way a caller could reach into a mutable `java.util.Date` through
-a getter or a retained constructor argument. Choosing `Instant` over
-`Date` is itself an encapsulation decision, made once at the type level,
-that removes an entire category of defensive code from every type that
-uses it afterward.
+`Instant` has no mutating methods, so `TrackingEvent` needs no defensive copy. A `java.util.Date` field would need one on the way in and on the way out, because a caller could change the `Date` it passed or the one a getter returned. Choosing `Instant` is an encapsulation decision made once, at the type, that removes defensive code from every type that uses it.
 
 ## Immutability and defensive copying: the part records do not do for you
 
-A record's compact constructor runs on every value that construction
-receives, but it does not automatically protect a collection-typed field
-the way it protects the record's own identity. `List.copyOf(items)` in
-`Manifest`'s compact constructor does two jobs in one line: it copies
-whatever list a caller passed in, so a later mutation of the caller's
-original list cannot reach this manifest's state, and it wraps that copy
-in an immutable list, so `manifest.items()` cannot be mutated by whoever
-calls it either.
+A `final` field holding a `List` still points at a list someone else may change. `List.copyOf(items)` in `Manifest`'s compact constructor does two jobs: it copies the caller's list, so later changes to it can't reach the manifest, and the copy is unmodifiable, so `manifest.items()` can't be changed by whoever calls it.
 
 ```java
 public record Manifest(String manifestId, List<ManifestLineItem> items, Instant preparedAt) {
 
     public Manifest {
         Objects.requireNonNull(manifestId, "manifestId");
+        if (manifestId.isBlank()) {
+            throw new IllegalArgumentException("manifestId cannot be blank");
+        }
+        Objects.requireNonNull(items, "items");
         if (items.isEmpty()) {
             throw new IllegalArgumentException("a manifest needs at least one line item");
         }
         items = List.copyOf(items);
         Objects.requireNonNull(preparedAt, "preparedAt");
     }
+
+    public int totalUnits() {
+        return items.stream().mapToInt(ManifestLineItem::quantity).sum();
+    }
 }
 ```
 
-`ManifestTest.compactConstructorDefensivelyCopiesTheCallersList` builds a
-mutable `ArrayList`, passes it to `Manifest`'s constructor, then adds a
-second element to that same list after construction, and asserts the
-manifest still reports exactly one item. A second test calls
-`manifest.items().add(...)` directly and asserts it throws
-`UnsupportedOperationException`. Both halves of defensive copying, the
-copy on the way in and the immutability on the way out, are proven as
-separate, observable facts rather than assumed from reading the one line
-of code that produces both.
+Add an item to the caller's `ArrayList` after construction and the manifest still reports one item. Call `manifest.items().add(...)` and it throws `UnsupportedOperationException`.
 
-The same two guarantees can be built by hand with two separate steps
-instead of one call:
+The same two guarantees can be built in two steps, `Collections.unmodifiableList(new ArrayList<>(items))`. Each step closes a different gap:
 
-```java
-this.items = Collections.unmodifiableList(new ArrayList<>(items));
-```
+| Compact constructor stores | Caller changes its own list afterward | Caller calls `items().add(...)` |
+| --- | --- | --- |
+| `List.copyOf(items)` | manifest unchanged | `UnsupportedOperationException` |
+| `Collections.unmodifiableList(new ArrayList<>(items))` | manifest unchanged | `UnsupportedOperationException` |
+| `Collections.unmodifiableList(items)` | the change shows through the view | `UnsupportedOperationException` |
+| `new ArrayList<>(items)` | manifest unchanged | the add succeeds |
 
-`new ArrayList<>(items)` is the copy; `Collections.unmodifiableList(...)`
-is the immutable wrap. Both steps matter, and dropping either one breaks a
-different half of the guarantee: skip the `ArrayList` copy and wrap the
-caller's own list directly, and a mutation of the caller's original list
-still reaches this object's state, because `unmodifiableList` only blocks
-mutation through the view it returns, not mutation of the list underneath
-it. Skip the `unmodifiableList` wrap and keep only the copy, and the copy
-protects against the caller's original list but not against a caller who
-holds onto whatever `items()` returns and calls `.add()` on it directly.
-`List.copyOf` closes both gaps in a single call because the list it
-produces is guaranteed immutable, which is why `Manifest`'s compact
-constructor uses it instead of the two-step form.
+`unmodifiableList` blocks changes through the view it returns, not changes to the list underneath. `List.copyOf` closes both gaps in one call, which is why `Manifest` uses it.
 
-> **AI sidebar.** Ask an LLM pairing partner to "make this class
-> immutable" and a common result adds `final` to every field and stops
-> there, because that is enough to satisfy a narrow, syntactic reading of
-> the word. Check the result the way this chapter trained: a `final` field
-> that holds a mutable object, a `List`, a `Date`, a `StringBuilder`, is
-> still reachable and mutable through that reference no matter how many
-> `final` keywords surround it. The generated code will compile, pass a
-> quick smoke test, and still let a caller mutate a "finished" object's
-> internal list by holding a reference to it from before construction or
-> by calling a getter and mutating what it returns. The fix a model rarely
-> volunteers unprompted is exactly this chapter's two-part check: does the
-> constructor copy a mutable argument before storing it, and does every
-> getter that exposes a collection or a mutable object return a defended
-> copy or an immutable view rather than the live field itself. A generated
-> `Manifest` with a `final List<ManifestLineItem> items` field and a getter
-> that returns `items` directly, with no `List.copyOf` anywhere, has
-> `final` in exactly the place that does not protect the guarantee the
-> prompt actually asked for.
+> **🤖 Explore with your agent**
+>
+> "In `examples/06-encapsulation`, add a `List<String> handlingNotes` component to the `Manifest` record. In the compact constructor, reject `null` with `Objects.requireNonNull` and store `List.copyOf(handlingNotes)`, so changing the caller's list after construction doesn't reach the manifest and `handlingNotes().add(...)` throws `UnsupportedOperationException`. Don't write a custom accessor, don't use `Collections.unmodifiableList` on the caller's list, and don't make `Manifest` a class. Update the callers in `ShippingDemo` and the tests, and add JUnit 5 tests with AssertJ for both guarantees, in the style of `ManifestTest`."
+>
+> Check: `mvn -q -f examples/06-encapsulation/pom.xml test -Dtest=ManifestTest` passes, and the compact constructor has exactly one `List.copyOf` line per list component.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this
-loop. From the repository root, the aggregator picks up
-`examples/06-encapsulation` automatically:
+From the repository root, through the aggregator, or standalone:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
-
-This example is also standalone-buildable from its own directory:
 
 ```sh
 cd examples/06-encapsulation
 mvn test
 ```
 
-Either path runs the same 19 JUnit 5 cases, asserted with AssertJ,
-including a parameterized contract test that runs identical assertions
-against `ShippingGateway.inMemory()` and a second implementation written
-entirely in the test tree. Observed locally on Fedora with Temurin 25.0.2:
-
-```
-Tests run: 19, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see the encapsulation guarantees hold at the terminal rather than just
-reading an assertion that says they do, run the example's own demo script:
+All 19 tests pass, including a parameterized contract test that runs the same assertions against `ShippingGateway.inMemory()` and a second implementation written in test code. Run the demo:
 
 ```sh
 examples/06-encapsulation/demo.sh
 ```
 
-It creates a shipment through the factory-built gateway, confirms
-`TrackingHistory.empty()` returns the same cached instance twice, records
-two events and shows the original `Shipment` reference untouched by either
-one, then mutates a caller's list after handing it to a `Manifest` and
-tries to mutate the manifest's own list directly:
+It creates a shipment through the factory-built gateway, checks that `TrackingHistory.empty()` returns one cached instance, records two events while the original `Shipment` stays unchanged, then changes a caller's list after handing it to a `Manifest` and tries to change the manifest's own list:
 
 ```
 == Public interface + package-private implementation ==
@@ -382,46 +258,15 @@ manifest still reports: 1
 manifest.items().add(...) rejected: UnsupportedOperationException
 ```
 
-The last three lines are the point made visible: a caller's list grows to
-two elements after handing it to `Manifest`, the manifest itself still
-reports one, and a direct attempt to mutate what the manifest returns is
-rejected outright rather than silently succeeding.
+The caller's list grew to two, the manifest still reports one, and the direct change is rejected. Two experiments, each in a scratch copy:
+
+- **Wrap without copying.** In `Manifest`, store `Collections.unmodifiableList(items)`. The defensive-copy check fails: the caller's later add shows through the view.
+- **Copy without wrapping.** Store `new ArrayList<>(items)`. The immutability check fails: `items().add(...)` succeeds.
 
 ## When not to use it
 
-Every tool in this chapter earns its cost only when the force behind it is
-present in the code, not merely available in the language.
-
-A record is the wrong shape for a type with identity that outlives its
-current field values, or for a type that needs to change state in place. A bank account whose balance updates on every transaction is not
-well modeled as a record that gets replaced wholesale on every deposit;
-two `Account` records with the same id and a different balance are, by a
-record's own `equals`, different values entirely, which is backwards for a
-type whose whole point is that the same account persists across changes to
-its balance. Reach for a record when a type's identity is its data, the
-way a `TrackingEvent` or a `Manifest` is fully described by its fields; keep
-a classic mutable class, with a stable identity field and an explicit
-`equals` based on that identity rather than on every field, when identity
-and state need to vary independently.
-
-Factory indirection behind an interface earns its cost when a second
-implementation is real or clearly coming, the same forces-over-reflex test
-this book applies to every pattern. `ShippingGateway` with exactly one
-implementation and nothing else planned would still compile, still pass
-every test in this chapter, and still add a file, an interface a reader
-has to open to find the one method that matters, and a factory call
-standing between a caller and the only class that will ever satisfy the
-contract. `ShippingGatewayContractTest`'s second implementation earns its
-place here because the chapter needs to prove the indirection buys
-something; a real codebase with no second gateway on its roadmap should
-write `InMemoryShippingGateway` as a plain public class with a public
-constructor, and introduce the interface the day a second implementation
-is needed, not before. An interface with a single implementation and
-a static factory that only ever returns that one class is the factory
-pattern's cost with none of its benefit, and a reviewer should ask the
-same question of it that this chapter asks of every other pattern: what
-forces does this abstraction resolve, and would the plainer alternative
-resolve them just as well.
+- **A record for a type with identity.** An account whose balance changes on every transaction isn't a value. Two `Account` records with the same id and different balances are unequal by the record's own `equals`, which is backwards for a type that persists across balance changes. Use a record when the type's identity is its data, as for `TrackingEvent` and `Manifest`. Use a class with a stable id and an `equals` on that id when identity and state vary independently.
+- **A factory behind a one-implementation interface.** `ShippingGateway` with one implementation and none planned still compiles and passes its tests, and adds a file, an interface to open and a factory call between the caller and the only class that will ever satisfy the contract. When no second gateway is planned, make `InMemoryShippingGateway` a public class with a public constructor, and introduce the interface the day a second implementation is needed.
 
 ## For deeper coverage
 

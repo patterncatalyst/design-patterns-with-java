@@ -12,73 +12,38 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- State the Single Responsibility Principle as "one reason to change," not
-  "one method," and split a type along the lines of who asks for the change
-  rather than how many lines the type has.
-- Build an Open/Closed extension point: an interface a new rule can satisfy
-  without editing the code that already calls it, and know when a closed,
-  compiler-checked alternative is the better fit instead.
-- State the Liskov Substitution Principle as a promise about behavior, not
-  a matching method signature, and name what a subtype has to honor to keep
-  that promise.
-- Enforce an invariant once, in a `final` method a subtype cannot override,
-  instead of trusting every subtype to reimplement the same guarantee
-  correctly.
-- Read a JUnit 5 and Mockito suite that proves OCP and LSP directly: a
-  test-defined rule type that needs no production code changes, and a
-  function written once against an interface that behaves correctly for
-  every concrete rule passed to it, including one that does not.
-- Recognize when splitting a responsibility, opening an abstraction, or
-  protecting an invariant is solving a problem nobody has yet, and say what
-  to write instead.
+- State the Single Responsibility Principle as "one reason to change" and split a type by who asks for the change, not by line count.
+- Build an Open/Closed extension point that a new rule satisfies without an edit to its caller, and know when a sealed, compiler-checked set fits better.
+- State the Liskov Substitution Principle as a promise about behavior, not a matching signature.
+- Enforce an invariant once, in a `final` method a subtype can't override.
+- Tell when splitting, opening or protecting a type solves a problem nobody has yet, and what to write instead.
 
 ## Why this matters
 
-A freight-billing engine has to do three unrelated jobs with the same
-invoice: total it, show it to the customer who is paying it, and remember it
-in case a dispute shows up six weeks later. The first version of that engine
-often lands as one `Invoice` type carrying a `calculateTotal` method, a
-`format` method, and a `save` method, because the invoice is the object all
-three jobs are about, and that reads as the obvious place for them to live.
-A sales tax rate changes once or twice a year, set by a finance team that
-has never opened this codebase. A receipt's wording changes whenever
-customer support wants a clearer line item or a different currency format.
-The storage layer changes rarely, maybe once, the day the business outgrows
-a flat file and moves to a real database. Three different reasons, three
-different schedules, three different people who might ask for each change,
-and in the one-type version all three land in the same file because nothing
-in the original design said they had to live apart.
+A freight-billing engine does three jobs with one invoice: total it, show it to the customer and keep it for the dispute that arrives six weeks later. The first version is often one `Invoice` type with `calculateTotal`, `format` and `save`. Then the three jobs change on their own schedules:
 
-This chapter's three principles, Single Responsibility, Open/Closed, and
-Liskov Substitution, all answer one question: this will change, and the
-rest of the system should not have to change with it. Robert C. Martin
-frames every one of the five SOLID principles that way, and a billing engine
-meets these three first, almost always in this order. SRP asks which code
-changes for which reason, and insists one type answer to exactly one of
-those reasons. OCP asks what happens the day a new rule shows up, a new
-jurisdiction's tax or a new discount program, and insists the answer is a
-new type, not an edited one. LSP asks whether a refined version of an
-existing type can stand in for it everywhere that type is expected, and
-insists the refinement keep every promise the original type made, not just
-its method signatures. Interface Segregation and Dependency Inversion pick
-up where this trio stops, once a dependency has to cross a boundary these
-three principles do not yet need to cross.
+| Job | Changes when | Asked for by |
+| --- | --- | --- |
+| Totaling | a tax rate moves, once or twice a year | finance |
+| Formatting | support wants a clearer line or a new currency format | customer support |
+| Storage | the business outgrows a flat file | engineering, perhaps once |
+
+In the one-type version all three land in the same file. Robert C. Martin frames each SOLID principle as an answer to one question: this will change, so what else must change with it? SRP asks which code changes for which reason. OCP asks what happens when a new rule arrives, and answers with a new type rather than an edited one. LSP asks whether a refined type can stand in for its parent everywhere, keeping every promise the parent made. Interface Segregation and Dependency Inversion take over once a dependency has to cross a boundary.
 
 {% include excalidraw.html name="03-open-closed-extension" caption="Figure 3.1: InvoiceCalculator depends on the InvoiceRule abstraction, never on a concrete rule. PercentageTaxRule and PercentageDiscountRule already existed; FlatServiceFeeRule arrived afterward as a new implementation, and InvoiceCalculator did not change." %}
 
 ## The domain: billing a freight invoice
 
-The example behind this chapter lives in `examples/03-solid-first-principles`.
-`LineItem` carries a description, a quantity, and a per-unit price; `Invoice`
-carries an id, a customer name, and a list of line items. Money is tracked
-as a `long` of exact cents, never a `double`, so a total is exact and a test
-assertion can compare it for equality without an epsilon:
+`LineItem` carries a description, a quantity and a unit price; `Invoice` carries an id, a customer name and its line items. Money is a `long` of cents, never a `double`, so totals are exact:
 
 ```java
 public record LineItem(String description, int quantity, long unitPriceCents) {
 
     public LineItem {
         Objects.requireNonNull(description, "description");
+        if (description.isBlank()) {
+            throw new IllegalArgumentException("description cannot be blank");
+        }
         if (quantity <= 0) {
             throw new IllegalArgumentException("quantity must be positive: " + quantity);
         }
@@ -87,49 +52,26 @@ public record LineItem(String description, int quantity, long unitPriceCents) {
         }
     }
 
+    /** The extended price for this line: quantity times the per-unit price. */
     public long extendedPriceCents() {
         return (long) quantity * unitPriceCents;
     }
 }
 ```
 
-A record is the right shape for `LineItem` because a line item is a value,
-not an entity: two line items with the same description, quantity, and
-price are interchangeable, and nothing about a line item should ever change
-after it is built. A record replaces the hand-written getters, `equals`,
-`hashCode`, and `toString` a value class like this once took to write and
-keep in sync by hand.
-
-```java
-public record LineItem(String description, int quantity, long unitPriceCents) {
-}
-```
-
-This record gives a caller three accessors, `description()`, `quantity()`,
-and `unitPriceCents()`, value equality, and a readable `toString()`, all
-derived from the state the header declares, with no second copy of the
-field list to keep in sync. The version shown here is also the one this
-example actually ships, with validation added in the compact constructor
-shown above. None of this is about SRP, OCP, or LSP by itself; it is the
-foundation the next three sections build their reasoning on, so it earns
-its place before the principles do.
+A line item is a value: two with the same fields are interchangeable, and none changes after it's built. The record supplies the accessors, `equals`, `hashCode` and `toString` from its header, and the compact constructor validates once.
 
 ## Single Responsibility: splitting by reason to change
 
-Picture the version that has not been split yet: one `Invoice` type with a
-`calculateTotal` method, a `format` method, and a `save` method, each
-reaching into the same line items and each changing for its own unrelated
-reason. That type compiles, runs, and passes a test the day it ships. It
-also means a change to the tax rate, a change to the receipt's wording, and
-a change to how invoices are stored all touch the same file, and a reviewer
-approving a tax fix has to read past formatting code and persistence code to
-find the handful of lines that actually matter. SRP's fix is not to make the
-type smaller for its own sake; it is to separate three unrelated reasons to
-change that were sharing one address, and give each one its own.
+In the unsplit `Invoice`, a tax fix, a wording change and a storage move all touch one file, and a reviewer of the tax fix reads past formatting and persistence code to find it. SRP doesn't ask for small types. It asks that unrelated reasons to change stop sharing an address.
 
-This example's split lands on three types, each with exactly one reason to
-change. `InvoiceCalculator` turns an `Invoice` and a list of rules into
-`Totals`:
+The split gives three types, one reason each:
+
+| Type | Job | Knows nothing about |
+| --- | --- | --- |
+| `InvoiceCalculator` | turns an `Invoice` and a list of rules into `Totals` | receipts, storage |
+| `InvoiceFormatter` | turns an `Invoice` and its `Totals` into receipt text | how the totals were computed |
+| `InMemoryInvoiceRepository` | saves invoices and finds them by id | totals, receipts |
 
 ```java
 public final class InvoiceCalculator {
@@ -141,6 +83,7 @@ public final class InvoiceCalculator {
     }
 
     public Totals totalsFor(Invoice invoice) {
+        Objects.requireNonNull(invoice, "invoice");
         long subtotalCents = subtotalOf(invoice);
         long totalCents = subtotalCents;
         for (InvoiceRule rule : rules) {
@@ -148,151 +91,60 @@ public final class InvoiceCalculator {
         }
         return new Totals(subtotalCents, totalCents);
     }
-    // ...
-}
-```
 
-`InvoiceFormatter` turns an `Invoice` and its already-computed `Totals` into
-receipt text, and knows nothing about how those totals were derived:
-
-```java
-public final class InvoiceFormatter {
-    public static String format(Invoice invoice, Totals totals) {
-        // ... renders invoice, line items, and totals as receipt text
+    private static long subtotalOf(Invoice invoice) {
+        long subtotal = 0L;
+        for (LineItem item : invoice.lineItems()) {
+            subtotal += item.extendedPriceCents();
+        }
+        return subtotal;
     }
 }
 ```
 
-`InMemoryInvoiceRepository` remembers invoices by id and hands them back,
-and never computes or renders anything:
-
-```java
-public final class InMemoryInvoiceRepository implements InvoiceRepository {
-    private final Map<String, Invoice> invoicesById = new HashMap<>();
-
-    @Override
-    public void save(Invoice invoice) {
-        invoicesById.put(invoice.id(), invoice);
-    }
-
-    @Override
-    public Optional<Invoice> findById(String id) {
-        return Optional.ofNullable(invoicesById.get(id));
-    }
-}
-```
-
-None of these three types knows the other two exist. `InvoiceCalculator`
-never calls `InvoiceFormatter.format`, and `InMemoryInvoiceRepository` never
-sees a `Totals` value at all; `BillingDemo` is the only place that calls all
-three in sequence. That separation is what makes the "one reason to change"
-test concrete rather than aspirational: changing the tax calculation means
-editing `InvoiceCalculator` and nothing else, changing the receipt's wording
-means editing `InvoiceFormatter` and nothing else, and a reviewer approving
-either change reads exactly the file the change touches. The suite proves
-this at the behavior level too: `InvoiceFormatterTest` hands the formatter a
-`Totals` value that does not match the invoice's real subtotal, and the
-formatter prints it anyway, because it never recomputes anything a caller
-already computed for it.
+Only `BillingDemo` calls all three. A tax change edits `InvoiceCalculator` and nothing else; a wording change edits `InvoiceFormatter` and nothing else. The formatter never recomputes: hand it a `Totals` that disagrees with the line items and it prints the `Totals` it was given.
 
 ## Open/Closed: a rule abstraction instead of an edited method
 
-A tax rate changing twice a year is a predictable kind of change, and OCP's
-claim is specific about how to meet it: a type should be open to having new
-behavior added, and closed against having its existing, already-tested code
-edited to make room for that behavior. The naive alternative is a method
-that grows a new branch every time a new tax jurisdiction or discount
-program launches, which means every addition risks breaking a branch that
-was already correct and already tested. This example's answer is
-`InvoiceRule`, an abstraction `InvoiceCalculator` depends on and never
-edits:
+OCP says a type is open to new behavior and closed to edits of its tested code. The alternative is a method that grows a branch for every new jurisdiction or discount program, where each addition risks a branch that already worked. `InvoiceCalculator` depends on `InvoiceRule` instead:
 
 ```java
 public interface InvoiceRule {
+
     long adjustmentCents(long subtotalCents);
+
     String name();
 }
 ```
 
-`PercentageTaxRule` adds a percentage of the subtotal; `PercentageDiscountRule`
-subtracts one, clamped so it can never discount more than the subtotal is
-worth (the next section covers why that clamp lives where it does). Both
-existed before `FlatServiceFeeRule`, a flat addition with no relationship to
-the subtotal at all, joined them. Adding `FlatServiceFeeRule` touched exactly
-one new file; `InvoiceCalculator.totalsFor` is byte-for-byte what it was
-before that file existed. Every rule receives the invoice's original
-subtotal, not a running total updated rule by rule, so each rule's
-adjustment is independent of the order the others ran in, a property the
-test suite checks directly by running the same three rules forward and
-reversed and asserting the two totals match.
+`PercentageTaxRule` adds a percentage of the subtotal and `PercentageDiscountRule` subtracts one. `FlatServiceFeeRule`, a flat amount unrelated to the subtotal, arrived later as one new file, and `totalsFor` didn't change. A rule defined only inside a test file, which the calculator's source has never seen, is applied the same way.
 
-`InvoiceCalculatorTest.addingANewRuleTypeRequiresNoEditToInvoiceCalculator`
-proves the "no edits" claim the same way a claim like this should be proved:
-it defines a brand-new `RoundUpToWholeDollarRule` right there in the test
-file, a type `InvoiceCalculator`'s own source has never seen, and hands an
-instance to the same constructor every other rule uses. The calculator picks
-it up and applies it correctly with zero production code changed, because
-`InvoiceRule` was always the actual extension point, not a convention a
-developer had to remember to follow. That is also why `InvoiceRule` stays a
-plain interface here instead of a sealed one: a plugin-style rule, written
-by a different team or defined only inside a test, has to be able to satisfy
-it without this file's permission.
+Every rule receives the original subtotal, not a running total, so the result doesn't depend on rule order. Pass `totalCents` instead and a tax applied after a discount is taxed on the discounted amount, and the same rules in reverse order give a different total.
 
-A catalogue that is closed instead of open calls for a different Java 25
-idiom, and sealed types are not a strictly better version of the open
-interface; they trade one property for another. Picture a finance team that
-wants every adjustment on an invoice explained on an audit line, and wants
-the compiler, not a code reviewer, to catch a kind of adjustment nobody
-wrote an explanation for yet. A sealed `InvoiceRule` hierarchy with an
-exhaustive switch replaces an `instanceof` chain whose default branch only
-catches a missing case at runtime, whenever some invoice finally exercises
-it.
+`InvoiceRule` stays a plain interface because a rule written by another team, or only in a test, must be able to implement it without editing this package. A closed catalogue calls for the opposite trade:
 
-```java
-// A sealed InvoiceRule permits exactly these three kinds, and the switch
-// over them is exhaustive. Adding a fourth permitted kind without adding
-// its case here is a compile error, not a runtime surprise reached by
-// whichever invoice exercises it first.
-public static String explain(InvoiceRule rule, long subtotalCents) {
-    return switch (rule) {
-        case PercentageTaxRule tax ->
-            tax.name() + ": +" + tax.adjustmentCents(subtotalCents) + "c";
-        case PercentageDiscountRule discount ->
-            discount.name() + ": " + discount.adjustmentCents(subtotalCents) + "c";
-        case FlatServiceFeeRule fee ->
-            fee.name() + ": +" + fee.adjustmentCents(subtotalCents) + "c";
-    };
-}
-```
+| | Open `InvoiceRule` interface | Sealed `InvoiceRule` with an exhaustive `switch` |
+| --- | --- | --- |
+| Adding a rule kind | a new file; no existing code changes | edit the `permits` clause and every `switch` over it |
+| A missing case is caught | at run time, by whichever invoice hits a default branch | at compile time |
+| Fits | plugin-style rules from other teams | a fixed set where every consumer, such as an audit line per adjustment, must decide when it grows |
 
-Sealing `InvoiceRule` for this purpose costs something: the permits clause
-and the switch both have to be edited the moment a fourth rule kind is
-added, which is precisely the edit OCP exists to avoid. What sealing buys
-back is that the compiler, not a runtime default branch, notices the gap.
-Reach for the open interface, the one this example actually ships, when a
-new rule has to arrive without a recompile of the code that applies it.
-Reach for the sealed, exhaustive-switch version when the catalogue is fixed
-by design and every consumer of it should have to make a visible decision
-the day it grows. The two trade OCP's openness for the switch's
-completeness in opposite directions; neither is a strictly better version
-of the other.
+Neither is better in general. The sealed version gives up OCP's openness to get completeness checking.
 
 ## Liskov Substitution: a discount that keeps its parent's promise
 
-LSP's statement is short: a subtype must be substitutable for its base type
-everywhere the base type is used, without a caller noticing a difference in
-correctness. The part that is easy to miss is that "correctness" here means
-the base type's whole contract, not just its method signatures. A
-`PercentageDiscountRule` that honors `InvoiceRule`'s contract promises more
-than "I have an `adjustmentCents` method that returns a `long`"; it promises
-the result never discounts more than the subtotal, because every caller of
-`adjustmentCents` is allowed to assume that without checking it.
+A subtype must stand in for its base type everywhere without a caller seeing a difference in correctness, and correctness means the whole contract, not only the signature. A discount rule promises more than "returns a `long`": it never discounts more than the subtotal, and every caller may assume that without checking.
 
-`PercentageDiscountRule.adjustmentCents` is declared `final` specifically to
-protect that promise:
+`PercentageDiscountRule` keeps the promise in one `final` method:
 
 ```java
 public abstract class PercentageDiscountRule implements InvoiceRule {
+
+    private final String name;
+
+    protected PercentageDiscountRule(String name) {
+        this.name = Objects.requireNonNull(name, "name");
+    }
 
     @Override
     public final long adjustmentCents(long subtotalCents) {
@@ -302,25 +154,35 @@ public abstract class PercentageDiscountRule implements InvoiceRule {
 
     protected abstract double discountRate(long subtotalCents);
 
+    @Override
+    public final String name() {
+        return name;
+    }
+
     private static double clampRate(double rate) {
         return Math.max(0.0, Math.min(1.0, rate));
     }
 }
 ```
 
-The clamp lives in exactly one place, and it runs after `discountRate`
-returns, not before. A subtype cannot override `adjustmentCents` to skip it;
-the compiler rejects the attempt outright, which is a stronger guarantee
-than a reviewer catching it in a pull request. `LoyaltyDiscountRule` refines
-`PercentageDiscountRule` for repeat customers, a base rate plus a bonus for
-every loyalty year, by overriding only the protected `discountRate` hook:
+The clamp runs on whatever `discountRate` returns. A subtype can't override `adjustmentCents` to skip it; the compiler rejects the attempt, which is stronger than a reviewer catching it. `LoyaltyDiscountRule` overrides only the hook:
 
 ```java
 public final class LoyaltyDiscountRule extends PercentageDiscountRule {
+
     private final double baseRate;
     private final double bonusRatePerYear;
     private final int loyaltyYears;
-    // constructor omitted
+
+    public LoyaltyDiscountRule(String name, double baseRate, double bonusRatePerYear, int loyaltyYears) {
+        super(name);
+        if (loyaltyYears < 0) {
+            throw new IllegalArgumentException("loyaltyYears cannot be negative: " + loyaltyYears);
+        }
+        this.baseRate = baseRate;
+        this.bonusRatePerYear = bonusRatePerYear;
+        this.loyaltyYears = loyaltyYears;
+    }
 
     @Override
     protected double discountRate(long subtotalCents) {
@@ -329,162 +191,56 @@ public final class LoyaltyDiscountRule extends PercentageDiscountRule {
 }
 ```
 
-A loyalty customer with a 95% negotiated base rate and fifty years on the
-account would, unclamped, combine to a 145% rate, discounting more than the
-invoice is worth. `LoyaltyDiscountRule` never has to defend against that
-case itself, because `adjustmentCents`'s clamp runs on whatever
-`discountRate` returns, including a value well past 1.0.
-`LiskovSubstitutionTest` makes the substitutability claim concrete with one
-function, written once against the base type:
+A 95% base rate plus 1% for each of fifty years is 145%, which would discount more than the invoice is worth. `LoyaltyDiscountRule` needn't defend against it, because the clamp caps the rate at 100%. Code written once against `InvoiceRule` gets a correct adjustment from `StandardDiscountRule` and `LoyaltyDiscountRule` alike, and for any configured rate, including 5.0 and a negative one, the adjustment stays between minus the subtotal and zero.
+
+`ClearanceEventDiscountRule` is the counter-example. It implements `InvoiceRule` directly, written in a hurry for a one-off event:
 
 ```java
-private static long adjustmentThroughBaseType(InvoiceRule rule, long subtotalCents) {
-    return rule.adjustmentCents(subtotalCents);
-}
-```
-
-That function is called with a `StandardDiscountRule` and with a
-`LoyaltyDiscountRule`, and both calls behave correctly, because neither
-subtype had the chance to violate the invariant the base type owns. A
-parameterized test calls the same function with rates from `0.0` to `5.0`
-and even a negative rate, and asserts the adjustment always lands in
-`[-subtotal, 0]`, proving the clamp holds no matter what a subtype's
-`discountRate` returns.
-
-The counter-example lives in the same file. `ClearanceEventDiscountRule`
-implements `InvoiceRule` directly, instead of extending
-`PercentageDiscountRule`, written in a hurry for a one-off clearance event
-with a rate set above 1.0:
-
-```java
-public final class ClearanceEventDiscountRule implements InvoiceRule {
-    private final double rate;
-    // ...
-
     @Override
     public long adjustmentCents(long subtotalCents) {
         return -Math.round(subtotalCents * rate);
     }
-}
 ```
 
-Nothing stops this class from compiling, and nothing stops it from
-implementing `InvoiceRule` correctly by the letter of the interface: it has
-an `adjustmentCents` method, and it returns a `long`. What it does not do is
-honor the contract every other discount rule in this example honors, and
-`LiskovSubstitutionTest.clearanceEventRuleViolatesTheInvariantEveryDiscountRuleIsExpectedToHonor`
-proves it: a 150% clearance rate on a $1,920.00 invoice discounts $2,880.00,
-more than the invoice is worth, something no `PercentageDiscountRule`
-subtype can produce. This is the shape an LSP violation actually takes in a
-real codebase: not a glaring bug caught on the first run, but a type that
-type-checks, compiles, and passes a quick smoke test, while quietly breaking
-an assumption every other implementation of the same interface was careful
-to uphold.
+It compiles and matches the interface by the letter. At a 150% rate on a $1,920.00 invoice it discounts $2,880.00, which no `PercentageDiscountRule` subtype can do. That's the usual shape of an LSP violation: a type that compiles and passes a smoke test while breaking an assumption every other implementation keeps.
 
-> **AI sidebar.** Ask an LLM pairing partner to "apply SOLID" to a working
-> `Invoice` type and a common result is an `IInvoiceCalculator` interface
-> with exactly one implementation, an `IInvoiceFormatter` interface with
-> exactly one implementation, and a factory to wire both together, because
-> that shape appears constantly in tutorials that treat "SOLID" as a
-> checklist to satisfy rather than a response to a specific force. Check the
-> result the way this chapter trained: SRP asks whether the split follows an
-> actual difference in who changes the code and why, not just whether the
-> result has more files than before. OCP asks whether a second rule,
-> implementation, or variant is already in hand or clearly coming; an
-> interface with one implementation and nothing else on the roadmap is OCP's
-> cost with none of its benefit. LSP asks whether a generated subtype honors
-> its parent's invariants, not merely its method signatures; a model asked
-> to "add a specialized discount" will cheerfully write a class that
-> overrides a percentage calculation in a way that breaks an invariant the
-> base class never wrote down anywhere a generator could see it. That is
-> exactly why this chapter's `PercentageDiscountRule` enforces its clamp in
-> a `final` method instead of trusting every future subtype to remember it;
-> ask the same question of generated code that does not have that
-> protection built in.
+> **🤖 Explore with your agent**
+>
+> "In `examples/03-solid-first-principles`, add a `SeasonalDiscountRule` that discounts a configured base rate plus a peak-season bonus. Extend `PercentageDiscountRule` and override only `discountRate(long subtotalCents)`; don't implement `InvoiceRule` directly and don't touch `adjustmentCents`, its clamp, or `InvoiceCalculator`. Keep money in `long` cents. Add JUnit 5 tests with AssertJ showing that a combined rate above 1.0 discounts exactly the subtotal and no more."
+>
+> Check: `mvn -q -f examples/03-solid-first-principles/pom.xml test -Dtest=LiskovSubstitutionTest` passes along with the new tests, and the diff leaves `InvoiceCalculator` unchanged.
 
 ## When SOLID works against you
 
-Every principle in this chapter earns its cost only when the force behind
-it is present, and all three share a failure mode in the other direction:
-applying them because the name is familiar, not because the forces that
-justify the name are in the code.
+Each principle earns its cost only when its force is present. All three fail the same way in the other direction: applied because the name is familiar.
 
-A billing engine with one tax rule, one discount program, and no second one
-on any roadmap does not need an `InvoiceRule` interface; it needs a method.
-Wrapping a single percentage calculation in an interface before a second
-implementation exists adds a file, an extra level of indirection, and a
-reader's detour through an abstraction to find the one case that will ever
-run through it, with nothing on the other side of that cost to justify it
-yet. SRP has the same failure mode from the opposite direction: splitting an
-`Invoice` type with one `calculateTotal` method and no formatting or
-persistence code anywhere near it into three types in advance of a second
-responsibility arriving does not clarify the design, it fragments it.
-Pushed far enough, this is how a codebase ends up with an anemic cluster of
-`InvoiceCalculatorHelper`, `InvoiceCalculatorSupport`, and
-`InvoiceCalculatorUtil` types, each holding one method, none of them owning
-a real responsibility on its own, and a reader has to open three files to
-follow logic a single method would have shown in one. SRP asks for one
-reason to change per type, not the smallest possible type; a type that
-currently has no second reason to change does not need to be carved up
-preemptively.
+- **OCP with one rule.** A billing engine with one tax rule and no second on any roadmap needs a method, not an `InvoiceRule` interface. The interface adds a file and a detour with nothing behind it yet.
+- **SRP ahead of the second job.** Splitting an `Invoice` with only `calculateTotal`, and no formatting or persistence near it, fragments the design. Pushed further, you get `InvoiceCalculatorHelper`, `InvoiceCalculatorSupport` and `InvoiceCalculatorUtil`, one method each, and three files to read logic one method would show.
+- **An LSP hook with one override.** `discountRate` is worth its cost because the loyalty variant was planned. Without a second rule, `PercentageDiscountRule` can apply its rate directly.
+- **A sealed set of one.** An exhaustive `switch` over one permitted type gives the compiler nothing to check.
 
-LSP's version of this failure is subtler and more common: building a
-protected extension hook, the way `PercentageDiscountRule.discountRate`
-exists here, when only one subtype will ever override it. That hook earns
-its design cost in this chapter's example because a second, materially
-different discount rule, the loyalty variant, was already planned; absent
-that, `PercentageDiscountRule` could apply its own rate directly with no
-hook at all, and a hook with exactly one caller is a promise of flexibility
-nobody is going to collect on. The sealed-interface idiom from the Open/
-Closed section carries its own version of the same caution: sealing
-`InvoiceRule` and writing an exhaustive switch over one single permitted
-type buys nothing a direct method call would not, because there is nothing
-for the compiler's completeness check to protect against yet. The test for
-all three principles in this chapter is the same one worth asking of any
-pattern: name the abstraction and the plain alternative side by side, and
-let whether a second case is in hand or clearly coming decide between them,
-not the principle's reputation for being good practice in general.
+Decide as for any pattern: name the abstraction and the plain alternative side by side, and let a second case in hand, or clearly coming, decide.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this loop.
-From the repository root, the aggregator picks up
-`examples/03-solid-first-principles` automatically:
+From the repository root, through the aggregator, or standalone:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
-
-This example is also standalone-buildable from its own directory:
 
 ```sh
 cd examples/03-solid-first-principles
 mvn test
 ```
 
-Either path runs the same 29 JUnit 5 cases, asserted with AssertJ, including
-one test that mocks `InvoiceRule` with Mockito to verify every rule receives
-the invoice's original subtotal regardless of calling order. Observed
-locally on Fedora with Temurin 25.0.2:
-
-```
-Tests run: 29, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see all three principles play out on one invoice rather than just reading
-an assertion that says they hold, run the example's own demo script:
+All 29 tests pass. One mocks `InvoiceRule` with Mockito to verify that each rule receives the original subtotal. Run the demo to see the three principles on one invoice:
 
 ```sh
 examples/03-solid-first-principles/demo.sh
 ```
 
-It prices a two-line invoice for Anchor Point Imports (two 40-foot
-containers of freight handling plus six weeks of warehouse storage), persists
-and reloads it by id, breaks down each rule's own adjustment, and then
-compares a loyalty discount against the clearance-event rule that skips the
-clamp:
+It prices a two-line invoice for Anchor Point Imports, saves and reloads it by id, breaks down each rule's adjustment, and compares a loyalty discount with the clearance rule that skips the clamp:
 
 ```
 == Single Responsibility: calculate, format, persist ==
@@ -508,10 +264,10 @@ Invoice total for a 6-year loyalty customer: $1,897.40
 Invoice total with the unclamped rule: -$771.40 (negative: the invariant every other rule honors)
 ```
 
-The last line is the point made visible rather than merely asserted: every
-`PercentageDiscountRule` subtype keeps an invoice's total at or above zero no
-matter what rate it is configured with, and a rule that bypasses that base
-type does not.
+Every `PercentageDiscountRule` subtype keeps the total at or above zero; the rule that bypasses the base type drives it negative. Two experiments, each in a scratch copy:
+
+- **Drop the clamp.** Make `clampRate` return `rate` unchanged. Four tests fail: the rates 1.5, 5.0 and -3.0 escape the zero-to-subtotal range, and the 145% loyalty customer is discounted past the subtotal.
+- **Pass the running total.** In `totalsFor`, call `rule.adjustmentCents(totalCents)`. Three tests fail: the total, the order-independence check and the Mockito verification that each rule sees the original subtotal.
 
 ## For deeper coverage
 

@@ -5,86 +5,45 @@ layout: tutorial
 sectionid: docs
 part: appendices
 appendix: "F"
-description: "A code-first tour of the wider principle vocabulary beyond SOLID, the names every Java engineer is expected to recognize on sight, each weighed against a before-and-after shipping-domain Java 25 snippet and the point where the principle starts costing more than it returns."
+description: "The principle vocabulary beyond SOLID that every Java engineer is expected to recognize, each shown as a before-and-after shipping-domain snippet with the point where it starts costing more than it returns."
 ---
 
-## How to read this appendix
+## Learning objectives
 
-A principle is the force sitting underneath a pattern. A pattern names a
-structure built to answer one of those forces directly: Strategy swaps an
-algorithm behind an interface, Observer lets a subject broadcast a change
-without naming its listeners, Decorator wraps a behavior without touching
-the type it wraps. A principle names the force on its own, in a form general
-enough to apply whether or not a named pattern is anywhere near the code
-that honors it. The SOLID chapters in this book build five of these
-principles in full, against a freight-billing engine and an
-order-notification system, with a JUnit 5 and Mockito suite proving each
-claim rather than describing it. This appendix does two things those
-chapters do not: it recaps SOLID in a handful of sentences, pointing back at
-that fuller treatment instead of repeating it, and it catalogs the rest of
-the vocabulary an engineer is expected to recognize by name, each weighed
-against a small before-and-after in this book's shipping domain: carriers,
-rate quotes, tracking records, invoices.
+By the end of this appendix you can:
 
-The short way to hold the distinction: a principle says *why*, a pattern is
-a *how* that answers it. DRY is a why; pulling a shared
-`shipmentTotalCents` method out of two near-duplicate methods is a how.
-Encapsulate What Changes is a why; Strategy is one how that answers it.
-Every entry below follows the same shape: why the principle matters, code
-that violates it, code that honors it, and a tension note, because every
-principle on this list costs something or trades against a counter-force,
-and naming a principle is not the same as knowing when to stop applying it.
+- Name the common programming principles beyond SOLID and say what force each one answers.
+- Spot a violation of each in shipping-domain Java and write the version that honors it.
+- Say when each principle starts costing more than it returns.
+- Tell a principle (why) from a pattern (how).
+
+## Why this matters
+
+A principle names a force; a pattern is a structure that answers one. DRY is a why, and pulling a shared `shipmentTotalCents` method out of two near-duplicates is a how. Encapsulate What Changes is a why, and Strategy is one how. Code review runs on these names, so a reviewer who can say "that's a Law of Demeter chain" saves a paragraph.
+
+Each entry below gives the force, a violation, a fix, and the tension: every principle trades against a counter-force, and knowing the name isn't the same as knowing when to stop. The listings are short illustrations in the shipping domain (carriers, rate quotes, tracking records, invoices), not excerpts from the examples.
 
 {% include excalidraw.html name="40-principle-families" caption="Figure F.1: The programming-principle vocabulary grouped into six families, from a tight SOLID recap through a process family with no code shape at all." %}
 
 ## Substitutability and responsibility (SOLID, recapped)
 
-The two SOLID chapters build these five principles in full against a
-freight-billing engine and an order-notification system, with a suite that
-proves each principle's claim directly instead of only describing it. This
-section recaps each one in a sentence or two and points back at that
-material rather than restating it.
+The SOLID chapters build these against a freight-billing engine and an order-notification system: [SOLID I]({{ '/docs/03-solid-first-principles/' | relative_url }}) and [SOLID II]({{ '/docs/04-solid-dependency-inversion/' | relative_url }}).
 
-**Single Responsibility.** A type should have exactly one reason to change.
-Splitting a billing engine's calculation, formatting, and persistence into
-their own types, `InvoiceCalculator`, `InvoiceFormatter`, and
-`InMemoryInvoiceRepository`, answers to three unrelated schedules of
-change: a tax-rate update, a receipt-wording change, a storage migration.
+| Principle | Claim | In the examples |
+|---|---|---|
+| Single Responsibility | A type has one reason to change | `InvoiceCalculator`, `InvoiceFormatter` and `InMemoryInvoiceRepository` change for a tax rate, a receipt wording and a storage migration |
+| Open/Closed | New behavior arrives as new code, not edits to working code | A flat service fee is one new `InvoiceRule`; the calculator is untouched |
+| Liskov Substitution | A subtype honors the base type's whole contract | `PercentageDiscountRule` clamps the rate in a method subtypes can't override, so a loyalty variant can't discount past the subtotal |
+| Interface Segregation | A client doesn't depend on capabilities it never uses | A fat `NotificationGateway` splits into `MessageSender`, `TemplateRenderer` and `DeliveryStatusProvider`; SMS implements one |
+| Dependency Inversion | Policy and detail both depend on an abstraction | The notification policy holds a `MessageSender`, never a concrete email or SMS gateway |
 
-**Open/Closed.** A module should be open to new behavior and closed against
-edits to behavior that already works. The `InvoiceRule` abstraction lets a
-new rule, a flat service fee, arrive as one new type; the calculator that
-applies every rule that predates it stays unchanged.
-
-**Liskov Substitution.** A subtype must honor its base type's whole
-contract, not only its method signatures. `PercentageDiscountRule` clamps
-its discount rate in a method its subtypes cannot override, so a loyalty
-variant that only supplies a rate can never discount an invoice past its
-own subtotal no matter what rate it computes.
-
-**Interface Segregation.** A client should not be forced to depend on a
-capability it never uses. Splitting a fat `NotificationGateway` into
-`MessageSender`, `TemplateRenderer`, and `DeliveryStatusProvider` lets an
-SMS channel implement exactly the one role it actually has.
-
-**Dependency Inversion.** High-level policy and low-level detail should
-both depend on an abstraction, never on each other directly. An
-order-notification policy holds a `MessageSender`, never a concrete email
-or SMS gateway, so the policy compiles and tests without ever naming a
-channel.
-
-The SOLID chapters are also where "when SOLID works against you" lives in
-full: none of the five is free, and each earns its cost only once a second
-case, a second rule, a second implementation, is in hand or clearly on the
-way.
+None of the five is free. Each earns its cost once a second case, rule or implementation is in hand or clearly coming.
 
 ## Simplicity and scope
 
 ### KISS (Keep It Simple)
 
-A design with fewer moving parts is cheaper to verify and cheaper to change
-later, because there is less structure standing between a reader and the
-one fact that matters.
+Fewer moving parts are cheaper to verify and to change.
 
 ```java
 // Violates KISS: a rule abstraction built for a carrier that currently
@@ -109,15 +68,11 @@ static long fuelSurchargeCents(long baseRateCents) {
 }
 ```
 
-Tension: once a second surcharge arrives, KISS yields to the Open/Closed
-force; keeping the method simple past that point means a growing chain of
-`if` statements, which is a different and worse kind of complexity.
+Tension: once a second surcharge arrives, KISS yields to Open/Closed. Keeping the method past that point grows a chain of `if` statements, a worse kind of complexity.
 
 ### YAGNI (You Aren't Gonna Need It)
 
-Code built for a need that has not arrived yet costs the same to read,
-review, and maintain as code answering a need that has, with nothing
-exercising it to prove it is correct.
+Code for a need that hasn't arrived costs as much to read and maintain as code that's used, and nothing exercises it.
 
 ```java
 // Violates YAGNI: fields added for a multi-currency, multi-leg routing
@@ -136,16 +91,11 @@ record RateQuoteRequest(double weightKg, DestinationZone zone) {
 }
 ```
 
-Tension: YAGNI is not license to skip an extension point a second carrier
-integration is already scheduled to need next sprint; the test is whether
-the need is clearly coming, not whether it is merely imaginable.
+Tension: YAGNI doesn't excuse skipping an extension point a second carrier integration is scheduled to need next sprint. Ask whether the need is coming, not whether it's imaginable.
 
 ### Do The Simplest Thing That Could Possibly Work
 
-Write the plain code that passes the case in front of you before reaching
-for a general structure, and promote it once a second case shows up. This
-is a discipline about implementation order; KISS is about the shape you
-land on once you are done.
+Write the plain code that passes the case in front of you, and generalize when a second case shows up. It's about implementation order; KISS is about the shape you end with.
 
 ```java
 // Skips the simplest thing: an interface built for a tracking lookup
@@ -163,16 +113,11 @@ static String statusFor(String trackingId, CarrierClient client) {
 }
 ```
 
-Tension: "simplest" is a starting point, not a place to stay once a second
-carrier's tracking API shows up; it is the same candidate-abstraction
-judgment every Strategy-shaped decision in this book trains directly.
+Tension: "simplest" is where you start, not where you stay once a second carrier's tracking API appears.
 
 ### Avoid Premature Optimization
 
-Spend engineering effort on a bottleneck a profiler has shown you, not on a
-guess about where one might be. The guess is usually wrong, and the code
-built to chase it usually costs more to maintain than the performance it
-was meant to buy.
+Optimize a bottleneck a profiler has shown you. A guess is usually wrong, and the code built to chase it costs more to maintain than it saves.
 
 ```java
 // Premature: a hand-rolled object pool for RateQuote, written before any
@@ -193,25 +138,21 @@ final class RateQuotePool {
 var quotes = new ArrayList<RateQuote>(expectedShipmentCount);
 ```
 
-Tension: the principle cuts both ways. Once a profiler does name quote
-construction as a hot loop under real load, declining to optimize out of
-general caution becomes its own mistake; measure, then decide, in either
-direction.
+Tension: once a profiler names quote construction as a hot loop under real load, declining to optimize is its own mistake. Measure, then decide.
 
 ### Curly's Law (Do One Thing)
 
-A method or a class that does one thing is easier to name precisely, test
-in isolation, and reuse somewhere its sibling logic does not belong.
+A method or class that does one thing is easier to name, test alone and reuse.
 
 ```java
 // Violates Curly's Law: validating, pricing, and logging in one method;
 // none of the three steps can be reused or tested alone.
-long quoteAndLogShipment(Shipment shipment, Logger logger) {
+long quoteAndLogShipment(Shipment shipment, System.Logger logger) {
     if (shipment.weightKg() <= 0.0) {
         throw new IllegalArgumentException("bad weight");
     }
     long rateCents = shipment.weightKg() > 20.0 ? 4_500 : 1_200;
-    logger.info("quoted {} cents", rateCents);
+    logger.log(System.Logger.Level.INFO, "quoted {0} cents", rateCents);
     return rateCents;
 }
 ```
@@ -229,23 +170,18 @@ long rateFor(Shipment shipment) {
     return shipment.weightKg() > 20.0 ? 4_500 : 1_200;
 }
 
-void logQuote(long rateCents, Logger logger) {
-    logger.info("quoted {} cents", rateCents);
+void logQuote(long rateCents, System.Logger logger) {
+    logger.log(System.Logger.Level.INFO, "quoted {0} cents", rateCents);
 }
 ```
 
-Tension: splitting past the point where a reviewer would want to call a
-piece on its own produces a maze of one-line methods, the same
-over-segregation failure the Interface Segregation recap above warns
-against.
+Tension: splitting past the point where anyone would call a piece on its own produces a maze of one-line methods, the same over-segregation Interface Segregation warns against.
 
 ## Structure and change
 
 ### DRY (Don't Repeat Yourself)
 
-One fact should live in exactly one place, so fixing it once fixes it
-everywhere it is used. The target is duplicated *knowledge*, a business
-rule written twice, not duplicated *text* that happens to look similar.
+One fact lives in one place, so fixing it once fixes it everywhere. The target is duplicated knowledge, a business rule written twice, not text that happens to look alike.
 
 ```java
 // Violates DRY: the same subtotal-plus-fuel-surcharge formula written
@@ -270,24 +206,17 @@ long shipmentTotalCents(Shipment shipment) {
 }
 ```
 
-Tension: two methods that happen to both add two numbers but encode
-unrelated business rules should stay separate; merging them under DRY's
-name means a later change to one rule silently changes a rule it was never
-meant to touch.
+Tension: two methods that both add two numbers but encode unrelated rules stay separate. Merged, a change to one rule silently changes the other.
 
 ### Separation of Concerns
 
-Keep unrelated concerns, parsing a request, pricing a shipment, writing to
-storage, in separate classes, so a change to one does not ripple into code
-that has nothing to do with it. Single Responsibility makes the same claim
-at the scale of one type; this principle makes it at the scale of a module
-or a layer.
+Parsing a request, pricing a shipment and writing to storage live in separate classes, so a change to one doesn't ripple into the others. Single Responsibility says this for one type; Separation of Concerns says it for a module or layer.
 
 ```java
 // Violates Separation of Concerns: parsing, pricing, and persistence in
 // one handler.
-void handleQuoteRequest(HttpRequest request, QuoteDatabase db) {
-    Shipment shipment = parseShipmentJson(request.body());
+void handleQuoteRequest(String requestBody, QuoteDatabase db) {
+    Shipment shipment = parseShipmentJson(requestBody);
     long rateCents = rateFor(shipment);
     db.exec("INSERT INTO quotes (weight, rate) VALUES (?, ?)",
             shipment.weightKg(), rateCents);
@@ -297,25 +226,18 @@ void handleQuoteRequest(HttpRequest request, QuoteDatabase db) {
 ```java
 // Honors Separation of Concerns: each concern is a class with one job;
 // the handler only sequences them.
-void handleQuoteRequest(HttpRequest request, QuoteDatabase db) {
-    Shipment shipment = ShipmentParser.parse(request.body());
+void handleQuoteRequest(String requestBody, QuoteDatabase db) {
+    Shipment shipment = ShipmentParser.parse(requestBody);
     long rateCents = RateCalculator.rateFor(shipment);
     new QuoteRepository(db).save(shipment, rateCents);
 }
 ```
 
-Tension: splitting every layer into its own class because "concerns are
-separate" ignores the real cost of the hop between them; apply it where
-the concerns change on different schedules, not wherever a boundary could
-theoretically be drawn.
+Tension: every hop between layers has a cost. Separate concerns that change on different schedules, not every place a boundary could be drawn.
 
 ### Encapsulate What Changes
 
-Isolate the part of a design expected to vary behind a stable interface,
-so the part that never varies never has to be touched when the varying
-part does. This is the exact force the Strategy pattern answers in full;
-the principle names the force on its own, with or without a pattern
-attached to it.
+Put the part expected to vary behind a stable interface, so the stable part never changes when it does. Strategy answers this force in full.
 
 ```java
 // Violates the principle: the varying part (how to price) sits inline
@@ -341,14 +263,11 @@ long checkoutTotalCents(Shipment shipment, RateStrategy strategy) {
 }
 ```
 
-Tension: reach for the interface once a second pricing model is in hand,
-not on the first one; an interface with a single implementation is this
-principle's cost with none of its benefit yet.
+Tension: introduce the interface with the second pricing model, not the first. An interface with one implementation pays the cost with none of the benefit yet.
 
 ### Hide Implementation Details
 
-A caller should depend on what a type does, not on how it stores the data
-behind it, so the representation can change without touching every caller.
+Callers depend on what a type does, not on how it stores its data, so the representation can change without touching them.
 
 ```java
 // Violates the principle: callers reach into the raw event list, and
@@ -374,18 +293,11 @@ final class TrackingRecord {
 }
 ```
 
-Tension: hiding a representation every caller legitimately needs,
-iterating every event for an audit, for example, just adds a wrapper
-method per field; hide what varies, expose what a caller actually
-computes.
+Tension: hiding data every caller legitimately needs, such as iterating every event for an audit, only adds wrapper methods. Hide what varies; expose what callers compute.
 
 ### Composition Over Inheritance
 
-Prefer assembling an object out of small collaborators to building a deep
-inheritance tree purely to reuse behavior. Inheritance is still the right
-choice when a real is-a relationship holds and a caller needs to
-substitute the derived type polymorphically; that case belongs to Liskov
-Substitution, not to this one.
+Build an object from small collaborators instead of a deep tree inherited for reuse. Inheritance is still right for a real is-a relationship where callers substitute the subtype; that's Liskov's territory.
 
 ```java
 // Violates the principle: inheritance reused for convenience, not for an
@@ -422,16 +334,11 @@ final class PriorityTracker {
 }
 ```
 
-Tension: composition that forwards every single method of the composed
-type is reinventing inheritance by hand, with more boilerplate and none of
-the type relationship; reach for composition when reuse, not
-substitutability, is what is being asked for.
+Tension: composition that forwards every method of the composed type is inheritance by hand, with more boilerplate and no type relationship. Use composition when the need is reuse, not substitutability.
 
 ### Orthogonality
 
-Independent parts of a system should stay independent: changing one
-should never force an unrelated change somewhere else because of a hidden
-side effect.
+Independent parts stay independent: changing one never forces a change elsewhere through a hidden side effect.
 
 ```java
 // Violates orthogonality: submitting a label flips an unrelated static
@@ -457,19 +364,13 @@ final class FastShipGateway implements CarrierGateway {
 }
 ```
 
-Tension: pursuing orthogonality past the point of diminishing returns
-produces parts so decoupled that a legitimate cross-cutting concern,
-tracing one request across label submission and logging, needs its own
-plumbing just to reconnect them.
+Tension: pushed too far, parts become so decoupled that a real cross-cutting concern, such as tracing one request through label submission and logging, needs its own plumbing to reconnect them.
 
 ## Coupling and cohesion
 
-### Minimise Coupling
+### Minimize Coupling
 
-Fewer, narrower dependencies between classes mean a change in one ripples
-into fewer places. Coupling cannot reach zero; two collaborating classes
-must agree on something. The question is whether that agreement is a
-narrow, published interface or a wide, accidental one.
+Fewer, narrower dependencies mean a change ripples into fewer places. Collaborators always agree on something; the question is whether it's a narrow published interface or a wide accidental one.
 
 ```java
 // High coupling: reaches past CarrierGateway's interface into its
@@ -487,16 +388,11 @@ boolean hasPendingShipments(CarrierGateway gateway) {
 }
 ```
 
-Tension: minimizing coupling by passing primitive values instead of a
-small, named type ("stringly typed" calls) trades one kind of coupling, to
-a type, for a worse kind, to an unenforced convention every call site has
-to get right on its own.
+Tension: passing primitives instead of a small named type ("stringly typed" calls) swaps coupling to a type for coupling to an unenforced convention every call site must get right.
 
-### Maximise Cohesion
+### Maximize Cohesion
 
-Group data with the operations that act only on that data, so a reader
-finds the logic next to the fields it touches instead of scattered across
-the codebase.
+Keep data with the operations that use only that data, so the logic sits next to the fields it touches.
 
 ```java
 // Low cohesion: logic that only ever uses Shipment's own fields lives
@@ -521,16 +417,11 @@ record Shipment(double weightKg, DestinationZone zone) {
 }
 ```
 
-Tension: pulling every method that merely accepts a `Shipment` parameter
-onto the record itself, including logic that also depends heavily on
-unrelated types, produces a god object; keep on the type only the logic
-that depends solely on that type's own fields.
+Tension: moving every method that takes a `Shipment` onto the record, including logic that leans on unrelated types, builds a god object. Move only logic that depends solely on the type's own fields.
 
 ### Law of Demeter
 
-A method should talk to itself, its parameters, objects it creates, and
-its own direct components, not chain through a stranger's stranger to
-reach a fact three hops away.
+A method talks to itself, its parameters, objects it creates and its direct components, not to a stranger's stranger three hops away.
 
 ```java
 // Violates the Law of Demeter: a chain reaching through three strangers,
@@ -550,15 +441,11 @@ record Invoice(Customer customer) {
 String postal = invoice.billingPostalCode();
 ```
 
-Tension: wrapping every possible chain in a delegating method bloats the
-near type with pass-through methods that exist for no reason but to
-satisfy the rule; apply it to chains an outside caller walks, not to every
-accessor that could theoretically be chained.
+Tension: wrapping every possible chain bloats the near type with pass-through methods. Apply it to chains outside callers walk.
 
 ### Command-Query Separation
 
-A method should either do something or answer something, never both, so a
-caller can read a query call without worrying it also changed state.
+A method either does something or answers something, so a caller can read a query without worrying it changed state.
 
 ```java
 // Violates Command-Query Separation: one method reports a value and
@@ -582,17 +469,11 @@ void advanceCursor() {
 }
 ```
 
-Tension: strict separation sometimes costs a real feature, an atomic
-pop-and-return off a queue shared across threads being the common case;
-some call sites accept a documented command that also returns a value
-rather than pay for two round trips under one lock.
+Tension: an atomic pop-and-return on a queue shared across threads needs both in one call. Some call sites accept a documented command that returns a value rather than take two round trips under one lock.
 
 ### Inversion of Control
 
-Let a framework, a feed, or a caller decide when your code runs, instead
-of your code deciding when to go ask. This is the general shape;
-Dependency Inversion, recapped above, is the specific SOLID claim about
-which abstraction the dependency points at once control is inverted.
+A framework, feed or caller decides when your code runs, instead of your code polling. Dependency Inversion is the narrower SOLID claim about which abstraction the dependency points at.
 
 ```java
 // In control: this method polls the feed on its own schedule, deciding
@@ -613,118 +494,59 @@ void pollForRateUpdates(RateFeed feed, RateCalculator calculator) throws Interru
 feed.onRateUpdate(calculator::applyUpdate);
 ```
 
-Tension: inverting control is not the same as inverting a dependency. The
-method reference above can still name a concrete `RateFeed` type directly
-and violate Dependency Inversion even while correctly inverting who calls
-whom.
+Tension: inverting control isn't inverting a dependency. The method reference above can still name a concrete `RateFeed` and violate Dependency Inversion while inverting who calls whom.
 
 ## Interoperability and resilience
 
 ### Robustness Principle (Postel's Law)
 
-Be conservative in what you send, liberal in what you accept. At a
-boundary where another system's payload is outside your control, a
-carrier's tracking webhook being the common case, tolerate variation
-defensively on the way in, and never introduce variation of your own on
-the way out.
+Be conservative in what you send and liberal in what you accept. At a boundary you don't control, such as a carrier's tracking webhook, tolerate variation coming in and add none going out.
 
 ```java
 // Violates the Robustness Principle: throws on any field the schema does
 // not explicitly list, so a carrier adding an undocumented field breaks
 // every shipment update until the parser is patched.
-TrackingUpdate parseWebhook(JsonValue body) {
-    for (String key : body.fieldNames()) {
+TrackingUpdate parseWebhook(Map<String, String> body) {
+    for (String key : body.keySet()) {
         if (!isKnownField(key)) {
             throw new IllegalStateException("unexpected field: " + key);
         }
     }
-    return new TrackingUpdate(body.stringValue("status"), body.stringValue("timestamp"));
+    return new TrackingUpdate(body.get("status"), body.get("timestamp"));
 }
 ```
 
 ```java
 // Honors the Robustness Principle: unknown fields are ignored, and a
 // missing optional field falls back to a documented default.
-TrackingUpdate parseWebhook(JsonValue body) {
+TrackingUpdate parseWebhook(Map<String, String> body) {
     return new TrackingUpdate(
-            body.stringValue("status", "unknown"),
-            body.stringValue("timestamp", currentTimestampIso8601()));
+            body.getOrDefault("status", "unknown"),
+            body.getOrDefault("timestamp", currentTimestampIso8601()));
 }
 ```
 
-Tension: "liberal in what you accept" taken past its limit can mask a real
-producer bug, silently absorbing a field that should have raised an
-alert; log what was ignored even while tolerating it, or a real data
-problem becomes indistinguishable from a clean parse.
+Tension: tolerance can hide a real producer bug. Log what was ignored, or a data problem looks like a clean parse.
 
 ## Principles for teams and process
 
-These five are not code-expressible; they describe how people and
-schedules behave around code, not a shape a compiler checks.
+These describe how people and schedules behave around code; no compiler checks them.
 
-**Boy-Scout Rule.** Leave the code you touch a little cleaner than you
-found it: rename the field in `CarrierGateway` whose name no longer
-matches what it holds while you are already in that file for a bug fix,
-delete the stale comment next to the rate calculation you just corrected.
-The rule compounds a codebase's quality over many small, incidental
-improvements instead of waiting for a dedicated cleanup project that
-rarely gets scheduled on its own. The tension: folding a boy-scout cleanup
-into an unrelated bug-fix pull request makes the diff harder to review and
-can bury the actual fix; keep the cleanup small and visible, in its own
-commit, so a reviewer can separate the fix from the tidying.
+| Principle | Says | In a shipping system | Tension |
+|---|---|---|---|
+| **Boy-Scout Rule** | Leave the code you touch a little cleaner than you found it | Rename the `CarrierGateway` field whose name no longer matches while you're there for a bug fix | Cleanup folded into a fix buries the fix; put it in its own small commit |
+| **Code For The Maintainer** | Write for a reader without your current context, often you in six months | Name a variable for its quantity, `outstandingBalanceCents`; comment why a rate-limit check exists | Writing for a careless reader adds comments that repeat code and checks for impossible states; write for a competent engineer new to the change |
+| **Murphy's Law** | Whatever can go wrong will, usually under load | A rate API times out on peak day; a webhook arrives with a promised field empty | Defend at the boundary (a retrying gateway, a validating intake), not at every downstream call site |
+| **Brooks's Law** | Adding people to a late project makes it later | Doubling the engineers on a tracking migration two weeks late doesn't rescue it: ramp-up drains the existing team, and communication paths grow faster than headcount | It describes a late project, not team growth planned with slack ahead of a deadline |
+| **Linus's Law** | Given enough eyeballs, all bugs are shallow | A second reviewer on a carrier-integration change catches a retry edge case the author missed | Reviewers without domain context multiply rubber stamps, not scrutiny; review quality beats headcount |
 
-**Code For The Maintainer.** Write code assuming the next reader does not
-carry the context sitting in your head right now, and remember that the
-next reader is often you, six months later, having forgotten exactly this
-detail. In a shipping system that means naming a variable for the
-quantity it represents, `outstandingBalanceCents`, rather than its type,
-and writing a comment that explains why a check against a carrier's rate
-limit exists rather than restating what the line already says. The
-tension: optimizing purely for an inattentive reader produces comments
-that repeat the code and defensive checks for conditions that structurally
-cannot occur, burying the real logic in noise; write for a competent
-engineer unfamiliar with this specific change, not for a careless one.
-
-**Murphy's Law.** Whatever can go wrong will go wrong, and it tends to
-happen under load, at the worst time. For a shipping system that means a
-carrier's rate API will time out during a peak shipping day, a tracking
-webhook will arrive with a field a contract promised would always be
-present but is empty this one time, and a network partition will land
-during the one deploy that mattered. The practical response is defensive
-design concentrated at a boundary, a retrying carrier gateway, a
-validating webhook intake, rather than trusting that a failure mode has
-not happened yet as evidence it never will. The tension: treating every
-internal call site as if the worst case applies duplicates defensive code
-everywhere; put the defenses at the boundary where the real uncertainty
-lives, not on every call downstream of it.
-
-**Brooks's Law.** Adding people to a software project that is already
-late makes it later, an observation Fred Brooks drew directly from
-managing IBM's OS/360 project. New engineers draw ramp-up time from people
-already stretched thin, and the number of communication paths across a
-team grows faster than the team itself. A tracking-system migration
-running two weeks behind a deadline does not get rescued by doubling the
-engineers assigned to it mid-sprint. The tension: the law describes a late
-project specifically, not team growth in general; a team given slack and
-brought on well ahead of a deadline, rather than in a crunch, faces a
-different situation the law does not cover.
-
-**Linus's Law.** Given enough eyeballs, all bugs are shallow, a maxim from
-open-source review culture associated with Linus Torvalds, claiming that
-more independent reviewers surface more of a change's defects than one
-reviewer working alone. Code review on a carrier-integration pull request
-applies this principle directly, a second reviewer catching a retry-logic
-edge case the author missed because they were too close to it. The
-tension: the law assumes reviewers bring independent context; several
-reviewers skimming the same invoice-calculation diff without understanding
-the billing domain do not multiply scrutiny, they multiply rubber stamps.
-The quality of a review matters more than the headcount of reviewers.
+Fred Brooks drew his law from managing IBM's OS/360 project. Linus's Law comes from open-source review culture and is associated with Linus Torvalds.
 
 ## For deeper coverage
 
-- David Thomas, Andrew Hunt, [*The Pragmatic Programmer: Your Journey to Mastery*](https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/) (20th Anniversary Edition, Addison-Wesley / Pragmatic Bookshelf): the source for DRY, orthogonality, and the Robustness Principle reviewed in this appendix.
+- David Thomas, Andrew Hunt, [*The Pragmatic Programmer: Your Journey to Mastery*](https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/) (20th Anniversary Edition, Addison-Wesley / Pragmatic Bookshelf): the source for DRY, orthogonality, and the Robustness Principle.
 - Robert C. Martin, [*Clean Code: A Handbook of Agile Software Craftsmanship*](https://www.pearson.com/en-us/subject-catalog/p/clean-code-a-handbook-of-agile-software-craftsmanship/P200000009044/9780132350884) (Prentice Hall): the source for the Boy-Scout Rule, Code For The Maintainer, and the do-one-thing discipline behind Curly's Law.
 - Frederick P. Brooks Jr., [*The Mythical Man-Month: Essays on Software Engineering*](https://www.pearson.com/en-us/subject-catalog/p/Brooks-Mythical-Man-Month-Anniversary-Edition-The-Essays-On-Software-Engineering-2nd-Edition/P200000000149/9780132119160) (Anniversary Edition, Addison-Wesley): the source for Brooks's Law.
-- Robert C. Martin, [*Agile Software Development: Principles, Patterns, and Practices*](https://www.pearson.com/en-gb/subject-catalog/p/agile-software-development-principles-patterns-and-practices-pearson-new-international-edition/P200000004932/9781292038360) (Prentice Hall): the original statement of the five SOLID principles the first family above recaps, taught in full in the SOLID chapters.
-- Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480/9780321700698) (Addison-Wesley): the Gang of Four's own advice to favor composition over inheritance and to program to an interface, the root of several principles in the structure-and-change family.
-- The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); each citation there is a pointer to the full book, not a substitute for reading it.
+- Robert C. Martin, [*Agile Software Development: Principles, Patterns, and Practices*](https://www.pearson.com/en-gb/subject-catalog/p/agile-software-development-principles-patterns-and-practices-pearson-new-international-edition/P200000004932/9781292038360) (Prentice Hall): the original statement of the five SOLID principles.
+- Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480/9780321700698) (Addison-Wesley): the Gang of Four's advice to favor composition over inheritance and to program to an interface.
+- The full reading list is on the [bibliography page]({{ '/bibliography/' | relative_url }}).

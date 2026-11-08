@@ -35,11 +35,7 @@ function patternSlide(eyebrow, title, bullets, fig, caption, notes) {
     fontSize: hasFig ? 15.5 : 17,
   });
   if (hasFig) {
-    s.addImage({
-      path: `${PNG}/${fig}.png`,
-      x: 6.45, y: 1.75, w: 6.25, h: 4.35,
-      sizing: { type: "contain", w: 6.25, h: 4.35 },
-    });
+    H.addFigure(s, `${PNG}/${fig}.png`, 6.45, 1.75, 6.25, 4.35);
   }
   if (caption) addCaption(s, caption);
   addNotes(s, notes);
@@ -141,7 +137,7 @@ patternSlide(
   [
     "A freight invoice's one Invoice class totaling a bill, formatting a receipt, and persisting the record means a tax fix, a wording change, and a storage change all land in the same file.",
     "SRP splits by reason to change, not by line count: an InvoiceCalculator, an InvoiceFormatter, and an InvoiceRepository, each with exactly one reason to change and no knowledge the other two exist.",
-    "Skip the split when nothing has a second reason to change yet; a class with one job and no second job in sight does not need to be carved into pieces in advance.",
+    "Skip the split when nothing has a second reason to change yet; a class with one job does not need to be split in advance.",
   ],
   undefined,
   undefined,

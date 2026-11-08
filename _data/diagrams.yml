@@ -192,7 +192,7 @@
   section: "Ch. 23"
   title: Which Java 25 feature retires which idiom
   caption: >-
-    Each classic idiom this book built by hand, paired with the Java 25 feature
+    Each classic idiom built by hand, paired with the Java 25 feature
     that gets the identical guarantee from the compiler or the runtime instead: the
     enum for the singleton, the record for the value class, sealed plus switch for
     the visitor, Optional for the null check.

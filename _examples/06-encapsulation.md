@@ -2,7 +2,7 @@
 layout: example
 order: 6
 title: "Encapsulation and API design: interfaces, factories, records"
-description: Hiding implementation behind a public interface and a static factory, with records and defensive copies for honest value types.
+description: Hiding implementation behind a public interface and a static factory, with records and defensive copies for immutable value types.
 github_path: examples/06-encapsulation
 card_eyebrow: "Chapter 6 · Encapsulation"
 card_title: "Interfaces, static factories, records"

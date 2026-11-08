@@ -4,7 +4,7 @@ order: 20
 layout: tutorial
 sectionid: docs
 part: "coordinating-traversing"
-description: "Three idiomatic Java 25 patterns for a fixed shipping-manifest hierarchy: Visitor expressed as a sealed interface and an exhaustive pattern-matching switch that adds operations with no accept() method anywhere, Memento as a package-private snapshot record that lets a draft manifest roll back to an earlier state in one call, and Interpreter as a small sealed surcharge-expression grammar whose nesting decides the evaluated result."
+description: "Three idiomatic Java patterns for a fixed shipping-manifest hierarchy: Visitor expressed as a sealed interface and an exhaustive pattern-matching switch that adds operations with no accept() method anywhere, Memento as a package-private snapshot record that lets a draft manifest roll back to an earlier state in one call, and Interpreter as a small sealed surcharge-expression grammar whose nesting decides the evaluated result."
 duration: "30 min"
 ---
 
@@ -12,78 +12,29 @@ duration: "30 min"
 
 By the end of this chapter you can:
 
-- Name the force Visitor answers: a fixed set of types that rarely grows a
-  new member, paired with a growing set of operations that each need to
-  touch every member, without putting every operation inside the types
-  themselves.
-- Build Visitor as a sealed interface and an exhaustive pattern-matching
-  `switch`, and show that a third operation ships with no change to any
-  type the switch dispatches over.
-- Build a Memento whose snapshot type is visible only inside its own
-  package, so a caretaker can hold what it returns without being able to
-  read a field out of it, and restore a whole object's state in one call.
-- Build an Interpreter as a small sealed expression grammar evaluated by a
-  record-pattern `switch`, and show that how its pieces are nested decides
-  the evaluated result, not just which pieces are present.
-- Compare a type-pattern `switch` against a record-pattern `switch` over
-  two different sealed hierarchies in this chapter, and say when
-  deconstructing a record's components directly reads better than binding
-  the whole record and calling an accessor.
-- Recognize when any of the three patterns is answering a force the
-  surrounding code does not have, and say what to write instead.
+- Write Visitor as a sealed interface and an exhaustive pattern-matching `switch`, and add an operation without touching the types it dispatches over.
+- Build a Memento whose snapshot type is package-private, so a caretaker can hold and return it but not read it.
+- Build an Interpreter as a small sealed expression grammar evaluated by a record-pattern `switch`, and show that nesting decides the result.
+- Choose between a type pattern and a record pattern in a `switch` arm.
+- Recognize when the surrounding code has none of these problems.
 
 ## Why this matters
 
-An export manifest that leaves a warehouse carries a handful of parcel
-kinds: a plain domestic parcel, one crossing a border with a customs code
-attached, one flagged hazardous with a placard requirement, one too large
-for a standard belt and routed through a freight desk instead. That set of
-kinds barely changes. A new carrier contract does not usually invent a
-fifth kind of parcel; it adds a new question to ask about the four kinds
-that already exist. First it was "how much does this cost to ship." Then a
-compliance team asked for "what does a customs desk need to know about
-this." Then a merchant's draft screen asked for "what is wrong with this
-entry, all at once, before it gets submitted." Each question is a new
-operation over the same fixed structure, and the Gang of Four's Visitor
-pattern names exactly this force: a structure that stays closed, and an
-open-ended list of operations that each need to see every member of it,
-written so a new operation never has to reopen the types it operates over.
+An export manifest carries four parcel kinds: domestic, international with a customs code, hazardous with a placard, and oversized for the freight desk. That set barely changes. What keeps arriving is new questions about the same four kinds: what does it cost to ship, what does customs need to know, what's wrong with this entry before it's submitted. Visitor adds each operation without reopening the types.
 
-A merchant editing a draft manifest in an admin screen runs into a
-different-shaped problem. Building a manifest takes several steps: name the
-batch, add an entry, add another, maybe drop one that turned out wrong,
-flip a submitted flag when it is ready to go. If step four was a mistake,
-undoing it by editing fields back to where they were is slower and more
-error-prone than discarding everything since step three and starting that
-step over. That is Memento's force: capture an object's entire state in a
-form a caller can hold and hand back later, without exposing what that
-state actually contains, so a whole batch of changes can be thrown away in
-one call instead of reversed one edit at a time.
+A merchant editing a draft manifest names the batch, adds entries, drops one, flips it to submitted. If the last few edits were wrong, discarding everything since a known point is faster and safer than reversing each edit. Memento captures the whole state in a form the caller can hold but not read.
 
-Interpreter answers a third, related question over a smaller and more
-arithmetic grammar: given a handling fee, an overweight surcharge gated on
-a threshold, and a fuel factor, what does the whole surcharge expression
-evaluate to, once those pieces are nested together. Pairing Visitor,
-Memento, and Interpreter in one chapter is not an arbitrary grouping of
-leftover Gang of Four entries. Visitor and Interpreter both walk a sealed
-hierarchy with a pattern-matching switch, close enough in mechanism that
-telling them apart by what each one is *for*, adding an operation over a
-structure, versus evaluating a grammar that structure already represents,
-is itself the discipline this chapter trains. Memento sits beside them as a
-different force, snapshotting state rather than walking it, that this same
-export-manifest domain also needs.
+A surcharge is a handling fee, an overweight fee gated on a threshold and a fuel factor, nested together. Interpreter evaluates that small grammar.
+
+Visitor and Interpreter both walk a sealed hierarchy with a pattern-matching switch. Visitor adds operations over a structure; Interpreter computes what a structure already means. Memento snapshots state instead of walking it.
 
 {% include excalidraw.html name="20-visitor-switch-operations" caption="Figure 20.1: ManifestEntry's four fixed kinds on the left, three independent operations on the right, each one its own exhaustive switch with no accept() method anywhere on the node types." %}
 
-## The domain: a fixed export-manifest hierarchy
+## Pattern: Visitor
 
-The example behind this chapter lives in `examples/20-visitor-memento-interpreter`.
-`ManifestEntry` is a sealed interface over exactly four record kinds:
-`StandardParcel`, `InternationalParcel`, `HazardousParcel`, and
-`OversizedParcel`. Every kind carries an `id`, a `declaredValue`, and a
-`weightKg`; the other three carry whatever extra data their own handling
-needs, a customs code and an origin country, a hazard class and a UN
-number, or three dimensions:
+### The problem
+
+`ManifestEntry` in `examples/20-visitor-memento-interpreter` is sealed over four records: `StandardParcel`, `InternationalParcel`, `HazardousParcel` and `OversizedParcel`. Each has an `id`, a `declaredValue` and a `weightKg`; the others add a customs code and origin country, a hazard class and UN number, or three dimensions:
 
 ```java
 public sealed interface ManifestEntry
@@ -97,27 +48,20 @@ public sealed interface ManifestEntry
 }
 ```
 
-`Money` tracks cents as a `long`, never a `double`, the same discipline
-every shipping-domain example in this book keeps, so a shipping cost
-compares exactly in a test assertion with no epsilon anywhere. None of the
-four implementing records validates `weightKg` or a business rule like a
-blank customs code in its compact constructor. That omission is
-deliberate: a draft entry can legitimately start with a placeholder weight
-before a scale reads it, and the validation this chapter's Visitor
-operation performs needs real invalid states to find, not states a
-constructor already refuses to let exist.
+`Money` holds cents as a `long`, so costs compare exactly. The records don't validate weight or blank fields in their constructors, because a draft entry may start with a placeholder weight, and validation is itself one of the operations. Putting cost, customs and validation methods on every record means editing all four for each new question.
 
-## Visitor: operations as an exhaustive switch, not an accept() method
+### The solution
 
-The Gang of Four's original Visitor pairs a visitor interface with an
-`accept()` method on every node, so a first virtual call resolves the
-node's exact type and a second, already-overloaded call resolves the
-operation's behavior for that type, a mechanism usually called double
-dispatch. Java 25 code answers the identical force without either piece.
-`ManifestOperations` is a utility class holding three static methods, each
-one dispatching on an exhaustive pattern-matching `switch` over
-`ManifestEntry`, with no visitor interface declared anywhere and no
-`accept()` method on any of the four record types:
+A **Visitor** represents an operation over the elements of a structure as a separate unit, so new operations are added without changing the element types.
+
+Use a Visitor when:
+
+- the set of types is fixed and known;
+- operations over those types keep multiplying.
+
+### How Java models it
+
+The GoF Visitor puts an `accept()` method on every node and a `visit()` overload per type, so two virtual calls (double dispatch) select the behavior. A sealed interface and an exhaustive `switch` replace both. `ManifestOperations` holds one static method per operation, with no visitor interface and no `accept()`:
 
 ```java
 public static Money shippingCost(ManifestEntry entry) {
@@ -131,22 +75,9 @@ public static Money shippingCost(ManifestEntry entry) {
 }
 ```
 
-`switch` resolves which arm runs by checking `entry`'s runtime type against
-each `case` pattern directly; there is no `visit()` overload set and no
-intermediate call that needs a node to know how to dispatch itself. The
-compiler is doing the same completeness work a Gang of Four visitor
-interface does by declaring every `visit()` overload abstract: because
-`ManifestEntry`'s `permits` clause names exactly four types and this
-`switch` has no `default` branch, `javac` refuses to compile unless all
-four are covered. Add a fifth record to `permits` later and every switch in
-`ManifestOperations.java` fails to compile until it grows a matching case,
-the same guarantee a Gang of Four `RuleVisitor` interface gets from
-declaring its `visit()` methods pure virtual, with no interface, no
-`accept()`, and no second class hierarchy to maintain alongside the first.
+The `switch` dispatches on the runtime type directly. With no `default` branch and a `permits` clause naming four types, `javac` refuses to compile unless all four are covered. Add a fifth record to `permits` and every switch in `ManifestOperations` stops compiling until it has a case: the completeness check a visitor interface gets from abstract `visit()` methods, without the second hierarchy.
 
-`customsSummary()` is the second operation, built the same way, with one
-new static method and zero changes to `StandardParcel`,
-`InternationalParcel`, `HazardousParcel`, or `OversizedParcel`:
+The second operation is one new method and no change to any record:
 
 ```java
 public static String customsSummary(ManifestEntry entry) {
@@ -162,15 +93,9 @@ public static String customsSummary(ManifestEntry entry) {
 }
 ```
 
-`validate()` is the third operation, and it does more than restate
-`shippingCost()` and `customsSummary()` with different logic, because of
-what it returns.
-A compact record constructor that rejected a blank `customsCode` the
-moment one was supplied could only ever report the first problem it found.
-A merchant staring at a rejected manifest wants every reason it was
-rejected at once, so `validate()` collects issues into a list instead of
-throwing on the first one, checking the shared `weightKg` rule before a
-second `switch` checks whatever is specific to each kind:
+### Validation as an operation
+
+A compact constructor that rejected a blank `customsCode` could report only the first problem. A merchant wants every reason at once, so `validate()` collects issues into a list, checking the shared weight rule before a `switch` checks each kind:
 
 ```java
 public static List<String> validate(ManifestEntry entry) {
@@ -195,62 +120,33 @@ public static List<String> validate(ManifestEntry entry) {
 }
 ```
 
-An `InternationalParcel` built with a zero weight and both required fields
-blank reports all three problems from one call, in the order a merchant
-would want to fix them, not whichever one a constructor happened to notice
-first. Three operations now exist over `ManifestEntry`, written across
-three separate commits in three separate contexts, and `StandardParcel`
-through `OversizedParcel` have not changed since the day they were first
-declared.
+An `InternationalParcel` with zero weight and both required fields blank reports three issues from one call. The four records haven't changed since they were declared.
 
-> **AI sidebar.** Ask an LLM pairing partner to "add an operation that
-> works over every kind in this hierarchy" and a common first answer,
-> reached for by reflex because it is the shape that appears in the most
-> textbooks, is the Gang of Four's classic Visitor: a new `ManifestVisitor`
-> interface, an `accept(ManifestVisitor visitor)` method added to
-> `ManifestEntry` and every record that implements it, and a `visit()`
-> overload per concrete type. That shape earns its cost when the set of
-> node kinds stays open, for instance a plugin system where a third
-> party can register a node kind this codebase has never seen, because an
-> interface-based visitor needs no `permits` clause and no recompile to
-> accept one. It is the wrong shape for a fixed, known set of four parcel
-> kinds that changes through a deliberate code review, not through runtime
-> registration. Before accepting a generated `accept()`-and-`visit()`
-> scaffold, check whether `ManifestEntry` could be declared `sealed` at
-> all; if the full set of implementors is known today and changes rarely,
-> a pattern-matching `switch` gets the identical completeness guarantee
-> with no second class hierarchy, no `accept()` boilerplate on types that
-> otherwise have none, and one fewer file per operation. A generated answer
-> that reaches for `accept()` over a `sealed` set with no plugin
-> requirement anywhere in the ticket is the clearest sign the model matched
-> the pattern's name to its most common textbook shape instead of reading
-> the forces first.
+## Pattern: Interpreter
 
-## Interpreter: a surcharge grammar whose nesting decides the answer
+### The problem
 
-Interpreter is not a third way to write Visitor's operations; it names a
-different force. Visitor's question is "what operations can be added over
-this fixed structure." Interpreter's question is "given that a structure
-already represents a small grammar, what does walking it compute."
-`SurchargeExpr` is a sealed interface over four kinds: a fixed `Literal`
-amount in cents, an `Add` of two expressions, a `Multiply` that scales one
-expression by a dimensionless factor such as a fuel surcharge, and an
-`IfWeightAbove` that picks one of two expressions based on a weight
-threshold:
+A surcharge combines fixed fees, a weight threshold and a multiplier. The same three pieces combined differently give different totals, and the code has to compute the right one for each combination.
+
+### The solution
+
+An **Interpreter** defines a representation for a small grammar and evaluates sentences in it by walking that representation.
+
+Use an Interpreter when:
+
+- the grammar is small and stable;
+- expressions are built in code at a few call sites, not parsed from user text.
+
+### How Java models it
+
+`SurchargeExpr` is sealed over four records: `Literal` (cents), `Add` of two expressions, `Multiply` scaling one expression by a dimensionless factor, and `IfWeightAbove`, which picks one of two expressions by a threshold:
 
 ```java
 public sealed interface SurchargeExpr permits Literal, Add, Multiply, IfWeightAbove {
 }
 ```
 
-`Multiply` takes one `SurchargeExpr` and a plain `double` factor rather
-than two expressions, because multiplying two cents amounts together
-produces a unit, cents squared, nothing in this domain means; a surcharge
-expression can only ever be scaled by a dimensionless number, never
-multiplied by another amount of money. `SurchargeExprs.evaluateCents()`
-walks the grammar with a `switch` that deconstructs each case's components
-directly through a record pattern, rather than binding the whole record
-and calling an accessor on it:
+`Multiply` takes a `double`, not a second expression, because cents times cents is a unit nothing in the domain means. `SurchargeExprs.evaluateCents()` walks the tree with record patterns that deconstruct each case's components in the `case` line:
 
 ```java
 public static long evaluateCents(SurchargeExpr expr, double weightKg) {
@@ -264,13 +160,9 @@ public static long evaluateCents(SurchargeExpr expr, double weightKg) {
 }
 ```
 
-`Literal(long amountCents)` pulls the record's single component straight
-into a local variable named in the `case` itself; there is no
-`expr.amountCents()` call anywhere in this method. A record pattern is one
-more idiomatic way to write an exhaustive `switch` over a sealed
-hierarchy, next to the plain type pattern `ManifestOperations` already
-used. Reading the two side by side against the identical kind of problem,
-a sealed-hierarchy `switch`, shows what each one buys:
+### Type pattern or record pattern
+
+Both forms are exhaustive and compiler-checked:
 
 {% include codetabs.html langs="Type pattern|Record pattern" %}
 
@@ -286,19 +178,14 @@ case HazardousParcel p -> "%s: hazmat class %s (UN%s), placard required, domesti
 case Multiply(var inner, var factor) -> Math.round(evaluateCents(inner, weightKg) * factor);
 ```
 
-Both arms are equally exhaustive and equally compiler-checked. The type
-pattern reads better when an arm uses most of a record's components,
-`p.id()`, `p.hazardClass()`, and `p.unNumber()` all read naturally off one
-bound name. The record pattern reads better once an arm immediately
-destructures every component anyway, especially a recursive one like
-`Add(var left, var right)`, where naming `left` and `right` directly in the
-`case` line removes two accessor calls from every branch beneath it.
+| Pattern | Reads better when |
+| --- | --- |
+| Type pattern (`case HazardousParcel p`) | The arm reads several components off one bound name, as `p.id()`, `p.hazardClass()` and `p.unNumber()` do. |
+| Record pattern (`case Add(var left, var right)`) | The arm uses every component at once, especially in a recursive case. |
 
-What makes Interpreter worth its own section rather than a note on Visitor
-is nesting. `fuelOnHandling` and `handlingOnFuel` below use the identical
-three pieces, a five-dollar handling fee, a ten-dollar overweight fee
-gated at twenty kilograms, and a 1.08 fuel factor, nested two different
-ways:
+### Nesting decides the result
+
+The same three pieces, a $5.00 handling fee, a $10.00 overweight fee above 20 kg and a 1.08 fuel factor, nested two ways:
 
 ```java
 SurchargeExpr fuelOnHandling = new Multiply(
@@ -309,21 +196,26 @@ SurchargeExpr handlingOnFuel = new Add(
         new IfWeightAbove(20.0, new Multiply(new Literal(1_000), 1.08), new Literal(0)));
 ```
 
-Evaluated against a 22 kilogram shipment, `fuelOnHandling` scales the whole
-fifteen-dollar sum by the fuel factor and comes to $16.20; `handlingOnFuel`
-scales only the ten-dollar overweight fee and comes to $15.80. Three
-identical leaf values, two different trees, two different totals for the
-identical shipment. That difference is precedence, expressed as tree shape
-rather than as an operator-binding rule a parser would otherwise apply;
-building the tree directly the way this example does sidesteps writing a
-parser at all while keeping the exact behavior a parsed grammar would have.
+For a 22 kg shipment, `fuelOnHandling` scales the whole $15.00 and gives $16.20; `handlingOnFuel` scales only the overweight fee and gives $15.80. Precedence is the tree's shape, so building the tree directly needs no parser.
 
-## Memento: a draft manifest that rolls back in one call
+## Pattern: Memento
 
-`ManifestDraft` is this chapter's Originator: a draft name, a growing list
-of `ManifestEntry` line items, and a `submitted` flag flipped once at the
-end of an editing session. Its nested `Snapshot` is the Memento, declared
-as a record with no access modifier at all:
+### The problem
+
+Undoing a batch of edits to a `ManifestDraft` field by field is slow and error-prone, and exposing the draft's internals to an undo stack lets that stack depend on them.
+
+### The solution
+
+A **Memento** captures an object's internal state in an opaque value that a caretaker stores and later hands back to restore it, without seeing what it contains.
+
+Use a Memento when:
+
+- a caller needs to discard a whole batch of changes since a known point;
+- the state shouldn't be readable by whoever holds the snapshot.
+
+### How Java models it
+
+`ManifestDraft` is the originator: a name, a list of entries and a `submitted` flag. Its nested `Snapshot` is the memento, declared with no access modifier:
 
 ```java
 public final class ManifestDraft {
@@ -346,123 +238,42 @@ public final class ManifestDraft {
 }
 ```
 
-No access modifier on a nested type means package-private: `Snapshot`'s
-canonical constructor and its three accessors are visible only to code
-inside `ManifestDraft`'s own package. A caller in another package can still
-hold whatever `save()` returns, assigned to a local declared with `var`
-rather than a named type, and pass that same value straight into
-`restore()`, but it can never write out the type `ManifestDraft.Snapshot`
-in its own source, and it has no way to call `.entries()` on a value whose
-type it cannot name. That is the real content of Memento's classic
-contract, capture an object's state in a form a caretaker can store and
-return without exposing what that state contains, done here with Java's
-own package boundary instead of the friend declarations a language without
-package-level access would need. Every caller in this example happens to
-live in the same package as `ManifestDraft` itself, so nothing here forces
-the discipline on this one file, but a real admin-screen controller written
-in its own package gets the same hiding the moment it reaches for `var`
-instead of spelling out a type it was never meant to see.
+A nested type with no modifier is package-private. Code in another package can still write `var s = draft.save();` and pass `s` to `restore()`, which compiles, but it can't write the type `ManifestDraft.Snapshot`, and calling `s.entries()` fails with "is defined in an inaccessible class or interface". Java's package boundary does the hiding that a friend declaration does elsewhere. All of the demo's callers share `ManifestDraft`'s package, so the hiding matters for code outside it, such as an admin-screen controller.
 
-`save()` does one thing beyond copying two scalar fields: it copies
-`entries` with `List.copyOf()` rather than handing back the same list
-object. Skipping that copy would let a `Snapshot` alias the live draft's
-list, so a later `addEntry()` call on the draft would silently change what
-an already-saved snapshot appears to hold. No deeper cloning is needed
-beyond that one copy, because every `ManifestEntry` is already an immutable
-record; nothing inside one can change after it is built, so sharing the
-same `StandardParcel` instance between a draft and ten different snapshots
-of it is always safe. `restore()` is the mirror operation, replacing
-`draftName`, `entries`, and `submitted` wholesale in a single call,
-regardless of how many `rename()`, `addEntry()`, `removeLastEntry()`, or
-`submit()` calls happened in between. Nothing about `restore()` knows or
-needs to know how many edits it is discarding; a caretaker that calls
-`save()` once and `restore()` once later undoes an entire editing session,
-whether that session held two edits or twenty.
+`save()` copies `entries` with `List.copyOf()`. Without the copy, the snapshot would alias the live list, and a later `addEntry()` would change what a saved snapshot holds. No deeper copy is needed, because every `ManifestEntry` is an immutable record. `restore()` replaces the name, the entries and the flag in one call, however many `rename()`, `addEntry()`, `removeLastEntry()` or `submit()` calls happened since `save()`.
 
-## When not to use Visitor, Memento, or Interpreter
+## When not to use it
 
-All three patterns in this chapter earn their cost only when the force
-behind them is real, not merely anticipated.
+- **Visitor.** One operation in one place needs a few `if`/`else if` branches, not a sealed hierarchy and a utility class. The opposite trap is an open set of kinds, extended by plugins or third parties you never recompile against: `permits` requires every implementor to be compiled together, so use an ordinary interface without `permits`. A classic `accept()`/`visit()` visitor fits that open case.
+- **Interpreter.** A grammar read from untrusted text, such as a surcharge formula a merchant types, needs tokenizing, precedence, associativity and error positions. Use an established parsing library or parser generator rather than growing the tree-building helpers into a parser.
+- **Memento.** An object with no multi-step editing workflow needs no `Snapshot`. Cloning a whole manifest on every keystroke to undo one field costs far more than a setter that remembers the previous value. Decide whether the caller reverts one field or discards a batch.
 
-Visitor pays for itself when a structure stays fixed and the operations
-over it keep multiplying. A hierarchy with exactly one operation checked
-in exactly one place needs neither a sealed interface's `permits` clause
-nor a dedicated utility class; it needs the handful of `if`/`else if`
-branches a single method can hold, read start to finish by one reviewer.
-The harder trap runs the other way: a set of kinds that stays open,
-extended by a plugin or a third-party integration this
-codebase will never recompile against, fights a sealed `switch` instead of
-fitting it, because `permits` demands every implementor be known and
-compiled together. An open type set that keeps growing from outside the
-project is a sign to reach for ordinary polymorphism, an interface with no
-`permits` clause and a `default` method or two, not a sealed hierarchy a
-new, unanticipated implementor can never join.
-
-Interpreter pays for itself when a grammar is small, stable, and built from
-a handful of call sites that construct expressions directly, the way this
-chapter's `fuelOnHandling` and `handlingOnFuel` do. A grammar that needs to
-accept untrusted text, a merchant typing a surcharge formula into a text
-box rather than a developer composing `SurchargeExpr` values in code, is a
-different and much larger problem: tokenizing, parsing precedence and
-associativity correctly, and reporting a syntax error at the right column
-are all real work that a hand-rolled recursive-descent parser gets wrong in
-ways that are easy to miss and expensive to find later. Reach for an
-established parsing library or parser generator once a grammar needs to
-read text a user supplies, rather than growing a Interpreter example's
-tree-building helpers into a parser nobody intended to write.
-
-Memento pays for itself when a whole-state rollback is something a caller
-actually asks for, not a feature added because the pattern was available.
-An object with no multi-step editing workflow and no "discard everything
-since this point" requirement does not need a `Snapshot` type and a
-`save()`/`restore()` pair sitting unused beside it. The sharper trap is
-reaching for Memento when a single, cheap, targeted undo is what the
-situation calls for: cloning an entire manifest on every keystroke to
-support undoing one field edit spends far more than the problem is worth,
-when a plain setter that remembers the one previous value would do the
-same job. Name which rollback shape a caller actually needs, one field
-reverted or one whole batch discarded, before reaching for either answer.
+> **🤖 Explore with your agent**
+>
+> "In `examples/20-visitor-memento-interpreter`, add a fourth operation over `ManifestEntry`, `insuranceRequired(ManifestEntry)`, that returns true when `declaredValue` exceeds $1,000.00 or the entry is a `HazardousParcel`. Write it as a static method on `ManifestOperations` with an exhaustive pattern-matching `switch` and no `default` branch. Don't add a visitor interface or an `accept()` method, and don't change any of the four records. Add tests for it in `ManifestOperationsTest`, one per parcel kind."
+>
+> Check: `mvn -q -f examples/20-visitor-memento-interpreter/pom.xml test -Dtest=ManifestOperationsTest`, and confirm none of the four record files changed.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this
-loop. From the repository root, the aggregator picks up
-`examples/20-visitor-memento-interpreter` automatically:
+From the repository root, the aggregator builds every example:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
 
-This example is also standalone-buildable from its own directory:
+Or build this one on its own:
 
 ```sh
 cd examples/20-visitor-memento-interpreter
 mvn test
 ```
 
-Either path runs the same 25 JUnit 5 cases, asserted with AssertJ,
-including a case that builds `fuelOnHandling` and `handlingOnFuel` from
-identical pieces and asserts they evaluate to different totals, not just
-that each one evaluates without throwing. Observed locally on Fedora with
-Temurin 25.0.2:
-
-```
-Tests run: 25, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see all three patterns run against one manifest rather than just reading
-an assertion that says they work, run the example's own demo script:
+All 25 tests pass. The demo prices and summarizes a four-entry manifest, validates an entry missing required fields, edits and restores a `ManifestDraft`, and evaluates the two surcharge trees:
 
 ```sh
 examples/20-visitor-memento-interpreter/demo.sh
 ```
-
-It prices and summarizes a four-entry manifest with the Visitor operations,
-collects every validation issue on an entry missing required fields, edits
-and restores a `ManifestDraft` through Memento, and evaluates the two
-differently-nested surcharge expressions through Interpreter:
 
 ```
 == Visitor: three operations over a fixed ManifestEntry hierarchy ==
@@ -484,22 +295,16 @@ After restore: name=Q4-export-batch entries=1 submitted=false
 ($5.00 + (if weight > 20.0kg then ($10.00 * 1.08) else $0.00)) -> $15.80
 ```
 
-The validation block's three-item list, printed from one rejected entry, is
-`validate()` collecting every problem in one pass rather than stopping at
-the first one, the observable version of the test suite's equivalent
-assertion. The memento block's final line, `entries=1` and `submitted=false`
-again after `entries=2` and `submitted=true` mid-edit, is a whole editing
-session discarded in one `restore()` call, not reversed field by field. The
-interpreter block's two totals, $16.20 against $15.80 for the identical
-three pieces nested two different ways, is nesting deciding an interpreted
-result, visible at the terminal rather than only in an assertion.
+One rejected entry lists all three issues. The draft returns to `entries=1` and `submitted=false` in one `restore()` call. The same three pieces give $16.20 and $15.80.
+
+- **Alias instead of copy.** In a scratch copy, pass `entries` to the `Snapshot` in `save()` without `List.copyOf()`. Three snapshot tests fail, because later edits to the draft now show through a held snapshot.
 
 ## For deeper coverage
 
 Visitor, Interpreter, and Memento are three of the last four patterns in
 the Gang of Four's original catalogue.
 
-- Erich Gamma, Richard Helm, Ralph Johnson, and John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480/9780321700698) (Addison-Wesley): the original Visitor, Interpreter, and Memento entries, including the "represent an operation to be performed on the elements of an object structure," "given a language, define a representation for its grammar," and "capture and externalize an object's internal state" intent statements this chapter's exhaustive switches, expression grammar, and package-private snapshot each build on.
-- Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991), third edition (Addison-Wesley): Item 17 on minimizing mutability is the idiom behind every `ManifestEntry` and `SurchargeExpr` record in this chapter, and the reason `ManifestDraft.save()` copies its entry list with `List.copyOf()` rather than aliasing it.
-- The official [JUnit 5 documentation](https://junit.org/junit5/docs/current/user-guide/) and [AssertJ documentation](https://assertj.github.io/doc/): the testing idiom behind `examples/20-visitor-memento-interpreter`'s suite, which asserts that two independently nested expressions evaluate to different totals and that a restored snapshot reproduces exact prior state, rather than only checking that each class constructs without error.
-- The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); each citation there is a pointer to the full book, not a substitute for reading it.
+- Erich Gamma, Richard Helm, Ralph Johnson, and John Vlissides, [*Design Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480/9780321700698) (Addison-Wesley): the original Visitor, Interpreter, and Memento entries, including the "represent an operation to be performed on the elements of an object structure," "given a language, define a representation for its grammar," and "capture and externalize an object's internal state" intent statements the exhaustive switches, expression grammar, and package-private snapshot build on.
+- Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991), third edition (Addison-Wesley): Item 17 on minimizing mutability is the idiom behind every `ManifestEntry` and `SurchargeExpr` record, and the reason `ManifestDraft.save()` copies its entry list with `List.copyOf()` rather than aliasing it.
+- The official [JUnit 5 documentation](https://junit.org/junit5/docs/current/user-guide/) and [AssertJ documentation](https://assertj.github.io/doc/): the testing idiom behind `examples/20-visitor-memento-interpreter`, which asserts that two differently nested expressions evaluate to different totals and that a restored snapshot reproduces exact prior state.
+- The full reading list lives on the [bibliography page]({{ '/bibliography/' | relative_url }}).

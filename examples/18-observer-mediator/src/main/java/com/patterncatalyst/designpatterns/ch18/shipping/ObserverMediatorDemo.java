@@ -57,7 +57,7 @@ public final class ObserverMediatorDemo {
             thirdTracker.advanceStatus(ShipmentStatus.PICKED_UP);
         }
         thirdTracker.advanceStatus(ShipmentStatus.IN_TRANSIT);
-        System.out.println("Callback ran " + callCount.get() + " time(s); subscriber_count() is now "
+        System.out.println("Callback ran " + callCount.get() + " time(s); subscriberCount() is now "
                 + thirdTracker.subscriberCount());
 
         System.out.println();

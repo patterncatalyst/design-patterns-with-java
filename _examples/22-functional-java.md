@@ -6,7 +6,7 @@ description: Everyday functional Java 25 constructs standing in for classic patt
 github_path: examples/22-functional-java
 card_eyebrow: "Chapter 22 · Functional Java"
 card_title: "Patterns as everyday functional Java"
-card_blurb: "A nightly shipment-fulfillment batch showing enums carrying behavior (Strategy, Singleton), lambdas and method references as Strategy and Command, a Template Method taking functions, composed UnaryOperator adjustments, stream pipelines with EnumMap grouping, and Optional as an honest return. Tests assert behavior across all of them."
+card_blurb: "A nightly shipment-fulfillment batch showing enums carrying behavior (Strategy, Singleton), lambdas and method references as Strategy and Command, a Template Method taking functions, composed UnaryOperator adjustments, stream pipelines with EnumMap grouping, and Optional as an explicit maybe-absent return. Tests assert behavior across all of them."
 ---
 
 Everyday Java 25 constructs are pattern implementations in disguise. This module

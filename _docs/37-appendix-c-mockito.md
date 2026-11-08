@@ -5,323 +5,237 @@ layout: tutorial
 sectionid: docs
 part: appendices
 appendix: "C"
-description: "A reference for Mockito: creating mocks with mock() and @Mock, stubbing with when/thenReturn and doReturn/doThrow, spy() and the nice-real/strict-mock spectrum, verify() with times/never/InOrder, argument matchers, ArgumentCaptor, and strict stubbing, all on shipping collaborators."
+description: "Reference for Mockito: mock() and @Mock, stubbing with when/thenReturn and doReturn/doThrow, spy(), verify() with times, never and InOrder, argument matchers, ArgumentCaptor, and strict stubbing, on shipping collaborators."
 duration: "15 min"
 ---
 
-## What this appendix covers
+## Learning objectives
 
-Every test double in this book that stands in for a collaborator interface
-is built with Mockito. It arrives through the `mockito-core` and
-`mockito-junit-jupiter` artifacts the aggregator already pulls in for every
-example module, so there is no extra dependency to add: wherever
-`org.junit.jupiter.api.Test` already works, `org.mockito.Mockito` does too.
-This appendix gathers the mechanics in one place: how to create a mock, how
-to stub it, the verification and matcher vocabulary, and the spectrum from a
-Mockito mock through a spy to a plain real object.
+By the end of this appendix you can:
 
-The testing-stack chapter and the legacy-seams chapter both build and use
-mocks as part of a larger argument about design; this appendix is the
-reference to return to once that design is in place and the exact syntax is
-the only thing left to look up.
+- Choose between a mock, a stub, a spy, a fake and a real object for a collaborator.
+- Create mocks with `@Mock` and `MockitoExtension`, and stub value-returning and `void` methods.
+- Verify call counts, absent calls and call order.
+- Combine matchers correctly and capture an argument for a later assertion.
+- Say when strict stubbing fails a test and when `lenient()` is the right answer.
 
-## When a mock is the right double
+## Why this matters
 
-A mock verifies an interaction: that a collaborator was called, how many
-times, with which arguments, and in what order relative to other calls. A
-fake or a stub verifies state: it stores data and hands it back, and a test
-inspects the result afterward without caring how many calls it took to get
-there.
+Every collaborator double in the examples is built with Mockito, from the `mockito-core` and `mockito-junit-jupiter` artifacts the aggregator already supplies, so no module adds a dependency. A mock checks an interaction: that a call happened, how often, with what, and in what order. A test that checks a returned value can't see a call that shouldn't have happened. Mocks and seams in context are covered in [Testing with JUnit 5, Mockito, and AssertJ]({{ '/docs/07-testing-with-junit/' | relative_url }}) and [Seams and the test safety net]({{ '/docs/29-seams-and-the-test-safety-net/' | relative_url }}).
 
-A `CarrierGateway` that a shipment-escalation service calls to notify a
-carrier is a mock because the thing worth asserting is the call itself:
-does the service call `notifyCarrier` exactly once, with the shipment and
-the reason it computed, and does it skip the call entirely when the
-shipment is still on time? No amount of inspecting a gateway's internal
-state answers "did it get called zero times or one time with the wrong
-reason." A `ShipmentRepository` that a dispatch workflow writes a finalized
-shipment to is a mock for the same reason: the behavior under test is that
-`dispatch()` saves exactly the shipment it just priced, not some earlier,
-unpriced version of it.
+## Choosing a double
 
-Contrast that with an in-memory rate ledger that just needs to track how
-much capacity it has left and hand bookings back on request. That is state,
-not interaction, and a real implementation or a hand-written fake is
-usually the better fit. The section near the end of this appendix returns
-to that line in more detail.
+| Double | What it does | Use it when the assertion is about | Example |
+|---|---|---|---|
+| Mock | Records calls; every unstubbed method returns a default | A call: which method, which arguments, how many times | A `CarrierGateway` that must be notified once, or not at all |
+| Stub | A mock with `when(...).thenReturn(...)` and no `verify` | Nothing about the collaborator; it only has to answer | A rate client that returns a fixed quote |
+| Spy | Wraps a real object; real methods run unless stubbed | Real state, with one hard-to-reach condition forced | A real `InMemoryRateLedger` that reports itself full |
+| Fake | A small working implementation | State across several calls | An in-memory ledger: record, then read back |
+| Real object | The production type | The result, when the type is fast, deterministic and in-process | `Clock.fixed(...)`, a record, a pure calculator |
 
-## Creating a mock: `mock()`, `@Mock`, and `MockitoExtension`
+The rule of thumb: if "it checks that..." ends with a method and an argument, use a mock. If it ends with a value something should hold afterward, use a fake or a real object. A mock earns its cost when the real collaborator is slow, nondeterministic or leaves the process; mocking a fast, deterministic type adds stubbing and gains nothing.
 
-`Mockito.mock(SomeType.class)` creates a mock inline, useful for a one-off
-double in a single test method:
+## Creating a mock
 
-```java
-RateLookup rateLookup = Mockito.mock(RateLookup.class);
-```
-
-The idiomatic form for a test class with more than one collaborator is
-`@Mock` combined with `MockitoExtension`, which creates every annotated
-field before each test method runs and validates framework usage (an
-unused stub, a mock passed to the wrong matcher) at the end of the test:
+`@Mock` with `MockitoExtension` creates each annotated field before every test and checks framework usage after it:
 
 ```java
 @ExtendWith(MockitoExtension.class)
-class DispatchWorkflowTest {
+class ShipmentEscalationServiceTest {
+
+    private static final Duration OVERDUE_GRACE = Duration.ofHours(2);
 
     @Mock
-    private CarrierGateway carrierGateway;
-
-    @Mock
-    private ShipmentRepository shipmentRepository;
-
-    @Mock
-    private RateLookup rateLookup;
-
-    // test methods use carrierGateway, shipmentRepository, and rateLookup
-    // directly; MockitoExtension constructs and resets them per test.
+    private CarrierGateway gateway;
 }
 ```
 
-A mock built either way implements the interface it stands in for and
-answers every method with a harmless default, `null` for an object return
-type, `0` or `false` for a primitive, an empty `Optional` or empty
-collection for those types, until a test stubs a specific call or verifies
-one happened. A mock never runs the real implementation of any method; that
-is what separates it from a spy, covered next.
+`Mockito.mock(CarrierGateway.class)` creates the same mock inline, for a one-off double in one method. Either way, the mock implements the interface and answers every call with a default (`null`, `0`, `false`, an empty `Optional` or an empty collection) until it's stubbed. It never runs a real method.
 
-## Stubbing a call: `when`/`thenReturn`, `thenThrow`, and `doReturn`/`doThrow`
+## Stubbing
 
-`when(...).thenReturn(...)` is the everyday stub: tell a mock what to
-answer when a specific call arrives.
-
-```java
-Money quoted = new Money(new BigDecimal("48.50"));
-when(rateLookup.quote(shipment)).thenReturn(quoted);
-```
-
-`thenThrow` stubs an exception instead of a value, for a test that proves a
-caller reacts correctly when a collaborator fails:
+| Form | Use it for |
+|---|---|
+| `when(mock.method(args)).thenReturn(value)` | A method with a return value |
+| `when(mock.method(args)).thenThrow(exception)` | Making a value-returning method fail |
+| `doThrow(exception).when(mock).method(args)` | Making a `void` method fail; `when(...)` needs a return value to wrap |
+| `doReturn(value).when(spy).method(args)` | Stubbing a spy without running the real method |
 
 ```java
-when(rateLookup.quote(shipment)).thenThrow(new CarrierUnavailableException("GRD"));
+@Test
+void secondLookupForTheSameShipmentNeverReachesTheWrappedQuoter() {
+    RateQuote quote = new RateQuote("ground", Money.ofCents(740));
+    when(inner.quote(shipment)).thenReturn(quote);
+    CachingRateQuoter caching = new CachingRateQuoter(inner);
+
+    RateQuote first = caching.quote(shipment);
+    RateQuote second = caching.quote(shipment);
+
+    assertThat(first).isEqualTo(quote);
+    assertThat(second).isEqualTo(quote);
+    verify(inner, times(1)).quote(shipment);
+    assertThat(caching.missCount()).isEqualTo(1);
+    assertThat(caching.hitCount()).isEqualTo(1);
+}
 ```
 
-Both forms read naturally for a method with a return type, because
-`when(...)` has to call the real method on the mock first to capture which
-call is being stubbed, and a `void` method has nothing to pass to `when`.
-`doReturn`/`doThrow` invert the order to stub a `void` method instead:
+`when(spy.method())` calls the real method once to record which call is being stubbed, with whatever side effects it has. The `do...` forms don't, which is why spies use them.
+
+## `spy()`: a real object with one method forced
+
+A spy runs the real implementation for every call except the ones a test stubs. That lets a test force one condition that's hard to produce, here a full ledger, and still check real state underneath:
 
 ```java
-doThrow(new IllegalStateException("shipment already dispatched"))
-        .when(shipmentRepository)
-        .save(duplicateShipment);
+InMemoryRateLedger realLedger = new InMemoryRateLedger(1);
+RateLedger ledgerSpy = spy(realLedger);
+doReturn(0).when(ledgerSpy).capacityRemaining();
+
+ShipmentBookingService atCapacityService =
+        new ShipmentBookingService(validator, costCalculator, ledgerSpy, idGenerator);
+Shipment shipment = new Shipment(2.0, CargoClass.STANDARD, "SEA", 9_000L);
+
+assertThatThrownBy(() -> atCapacityService.book(shipment))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("capacity");
+
+verify(ledgerSpy, never()).record(any());
+assertThat(realLedger.recordedBookings()).isEmpty();
 ```
 
-The same `doReturn`/`doThrow` form is also the only safe way to stub a
-method on a spy, covered next, because `when(spy.someMethod())` on a spy
-runs the real method first to figure out what is being stubbed, which
-defeats the point of forcing one method's answer without triggering its
-real side effects.
+Use a spy when most of a collaborator should run unchanged. Use a mock when none of it should: a spy still carries the real object's construction and state.
 
-## `spy()`: wrapping a real collaborator
+## A real object instead of a double
 
-A spy wraps a real object and runs its real methods by default; a test
-overrides only the one method whose behavior is inconvenient to produce
-through the real object directly.
+`java.time.Clock` is the clearest case. Production code takes a `Clock`; a test passes `Clock.fixed(instant, zone)`, a real `Clock` that always returns one instant. It needs no stubbing, and the JDK already tests its contract:
 
 ```java
-InMemoryShipmentRepository realRepository = new InMemoryShipmentRepository();
-ShipmentRepository repositorySpy = spy(realRepository);
-doThrow(new DuplicateShipmentException("SHM-9001"))
-        .when(repositorySpy)
-        .save(argThat(s -> s.shipmentId().equals("SHM-9001")));
+@Test
+void aDeadlineExactlyAtTheGracePeriodBoundaryIsEscalated() {
+    Instant overdueAt = Instant.parse("2026-01-10T12:00:00Z");
+    Instant promised = overdueAt.minus(OVERDUE_GRACE);
+    ShipmentEscalationService service =
+            new ShipmentEscalationService(Clock.fixed(overdueAt, ZoneOffset.UTC), gateway);
+    Shipment shipment = new Shipment("SHM-2101", promised, 10.0);
+
+    EscalationResult result = service.escalate(shipment);
+
+    assertThat(result.escalated()).isTrue();
+    verify(gateway).notifyCarrier(eq(shipment), any());
+}
 ```
 
-Every other call to `repositorySpy.save(...)` still runs
-`InMemoryShipmentRepository`'s real logic and is visible by inspecting
-`realRepository` afterward, the same object underneath the spy. That last
-point is what a spy buys that a mock cannot: a test can assert on real
-state (`realRepository.findById(...)` returning what was stored) at the
-same time it forces one specific call down an exceptional path.
+## `verify()`
 
-Reach for a spy specifically when most of a collaborator's behavior should
-run unmodified and only one hard-to-produce condition needs forcing. Reach
-for a full mock when none of the real implementation needs to run, because
-every stubbed method still carries the overhead of a real object underneath
-it, construction cost, internal state, anything its constructor requires,
-that a mock never pays.
+| Form | Checks |
+|---|---|
+| `verify(mock).method(args)` | Exactly one matching call |
+| `verify(mock, times(n))` / `atLeastOnce()` | A specific or minimum count |
+| `verify(mock, never()).method(args)` | No matching call |
+| `verifyNoInteractions(mocks...)` | No call of any kind on the mocks |
+| `inOrder(mocks...).verify(mock).method(args)` | Calls across mocks in sequence |
 
-## When to prefer a real object instead of a mock or a spy
-
-Not every collaborator needs a test double at all. `java.time.Clock` is the
-clearest case in this book: production code calls `Clock.systemUTC()`
-exactly once, and a test that needs a specific, repeatable instant reaches
-for `Clock.fixed(instant, zoneOffset)`, a real `Clock` instance the JDK
-ships, not a Mockito mock of one.
+`never()` makes the absence of a call the assertion. A booking that fails validation must not reach the ledger; checking only the exception would pass even if `record` ran first:
 
 ```java
-Clock noon = Clock.fixed(Instant.parse("2026-01-10T12:00:00Z"), ZoneOffset.UTC);
-ShipmentEscalationService service = new ShipmentEscalationService(noon, carrierGateway);
+Shipment malformed = new Shipment(-1.0, CargoClass.STANDARD, "SEA", 12_000L);
+
+assertThatThrownBy(() -> service.book(malformed)).isInstanceOf(InvalidShipmentException.class);
+
+verify(ledger, never()).record(any());
 ```
 
-`Clock.fixed` answers the same question a mock would, "what instant does
-`now()` return," with less code, no stubbing syntax to get wrong, and a
-real implementation whose contract is already tested by the JDK itself.
-The same reasoning applies to any immutable value type or pure function a
-collaborator calls: a real `BigDecimal`, a real `RateLookup` implementation
-with deterministic math and no I/O, or a real in-memory repository used as
-a fake rather than wrapped in a spy. A mock earns its cost when the real
-object is slow, nondeterministic, or reaches outside the process, a
-network call, a clock reading the actual wall clock, a database. A mock of
-something that is already fast, deterministic, and side-effect-free adds
-stubbing ceremony in exchange for nothing.
-
-## `verify()`: call-count and ordering assertions
-
-`verify(mock)` with no further arguments checks exactly one call happened;
-`times`, `never`, and `atLeastOnce` make the cardinality explicit.
+`verifyNoInteractions` is the stronger form, for a precondition that must stop a pipeline before any step runs:
 
 ```java
-verify(carrierGateway, times(1)).notifyCarrier(shipment, "promised delivery window missed by more than 24h");
-verify(shipmentRepository, never()).save(any());
-verify(rateLookup, atLeastOnce()).quote(any());
+FunctionalOrderPipeline pipeline = new FunctionalOrderPipeline("test-channel", validator, pricer, recorder);
+Order empty = new Order("ORD-2", "Customer", List.of(), "");
+
+assertThatIllegalArgumentException().isThrownBy(() -> pipeline.process(empty));
+
+verifyNoInteractions(validator, pricer, recorder);
 ```
 
-`never()` turns the absence of a call into the assertion itself. A test
-that only checks a returned value would pass even if a bug called
-`shipmentRepository.save(...)` before validation ran and threw afterward; a
-`verify(shipmentRepository, never())` check catches that bug directly,
-because it asserts on the interaction, not just the outcome.
-
-`InOrder` adds a constraint `times`/`never` cannot express on their own:
-that calls across one or more mocks happened in a specific sequence, such
-as a dispatch workflow that must look up a rate before it ever saves a
-shipment.
+`InOrder` checks a sequence. A shipping facade has to issue the tracking number before it quotes, renders the label and builds the tracking URL:
 
 ```java
-InOrder dispatchOrder = inOrder(rateLookup, shipmentRepository);
-dispatchOrder.verify(rateLookup).quote(shipment);
-dispatchOrder.verify(shipmentRepository).save(any());
+InOrder order = inOrder(trackingRegistry, carrierGateway, labelPrinter);
+order.verify(trackingRegistry).issueTrackingNumber(1);
+order.verify(carrierGateway).quote(shipment);
+order.verify(labelPrinter).render(shipment, "TRK-1001");
+order.verify(trackingRegistry).trackingUrl("TRK-1001");
 ```
 
-`InOrder` only constrains the calls it names; any other call on either mock
-outside that chain is unconstrained unless a separate `verify` covers it.
+`InOrder` constrains only the calls it names. Other calls on the same mocks are unconstrained unless another `verify` covers them.
 
 ## Argument matchers
 
-A bare literal argument to a stub or a `verify` call, like
-`quote(shipment)` or `save(dispatchedShipment)`, is compared with
-`equals()`. A matcher replaces that literal with a rule: `any()` to accept
-anything, `eq(x)` to compare by equality explicitly when it needs to
-combine with other matchers, and a custom predicate through `argThat` for a
-check no built-in matcher expresses directly.
+A plain argument compares with `equals()`. A matcher replaces it with a rule: `any()` accepts anything, `eq(x)` compares by equality, and `argThat(predicate)` takes a lambda:
 
 ```java
-verify(carrierGateway).notifyCarrier(eq(shipment), any());
-
-verify(shipmentRepository).save(argThat(
-        s -> s.status() == ShipmentStatus.DISPATCHED && s.shipmentId().equals("SHM-9001")));
+verify(ledger).record(argThat(recorded -> recorded.bookingId().equals("BK-0001")));
 ```
 
-The rule every Mockito user eventually trips over is all-or-nothing: once a
-single argument in a call uses a matcher, every argument in that same call
-must use a matcher, never a mix of a matcher and a plain literal.
-`notifyCarrier(eq(shipment), "promised delivery window missed")` throws an
-`InvalidUseOfMatchersException` at runtime, not a compile error, because
-the literal second argument has no matcher wrapping it. The fix is to wrap
-every argument, using `eq(...)` for the ones that should still compare by
-equality:
+Matchers are all-or-nothing within one call. Once one argument uses a matcher, every argument must. `notifyCarrier(eq(shipment), "promised delivery window missed by more than 2h")` compiles and then fails at run time with `InvalidUseOfMatchersException`. Wrap the literal in `eq(...)`, or use `any()` when the value doesn't matter:
 
 ```java
-verify(carrierGateway).notifyCarrier(eq(shipment), eq("promised delivery window missed"));
+verify(gateway).notifyCarrier(eq(shipment), any());
 ```
 
 ## `ArgumentCaptor`
 
-A matcher narrows which call satisfies a stub or a verification; it cannot
-hand the matched value back for a separate assertion. `ArgumentCaptor` does
-exactly that, which matters whenever the object worth asserting on is
-constructed inside the method under test and never appears as a literal a
-test could write down in advance.
+A matcher decides which call counts; it can't hand the argument back. An `ArgumentCaptor` can, which matters when the method under test builds the object and no test could write it down in advance. `capture()` goes inside `verify`, and `getValue()` (or `getAllValues()` for repeated calls) returns what was passed:
+
+```java
+BookingRecord bookingRecord = service.book(shipment);
+
+ArgumentCaptor<BookingRecord> captor = ArgumentCaptor.forClass(BookingRecord.class);
+verify(ledger).record(captor.capture());
+
+assertThat(captor.getValue()).isEqualTo(bookingRecord);
+assertThat(captor.getValue().amount()).isEqualTo(costCalculator.cost(shipment));
+```
+
+`@Captor` is the field form, created by `MockitoExtension` like `@Mock`:
 
 ```java
 @Captor
-private ArgumentCaptor<Shipment> shipmentCaptor;
+private ArgumentCaptor<String> messageCaptor;
 
 @Test
-void dispatchSavesTheShipmentWithItsQuotedRate() {
-    when(rateLookup.quote(shipment)).thenReturn(new Money(new BigDecimal("48.50")));
+void theNotificationMessageNamesTheShipmentAndTheTotal() {
+    LegacyShipmentProcessor processor =
+            new LegacyShipmentProcessor("ops-supervisor@example.com", notificationGateway);
 
-    workflow.dispatch(shipment);
+    processor.dispatch(new Shipment("SH-5002", 10_000));
 
-    verify(shipmentRepository).save(shipmentCaptor.capture());
-    assertThat(shipmentCaptor.getValue().quotedRate()).isEqualTo(new Money(new BigDecimal("48.50")));
-    assertThat(shipmentCaptor.getValue().status()).isEqualTo(ShipmentStatus.DISPATCHED);
+    verify(notificationGateway).sendDispatchConfirmation(eq("ops-supervisor@example.com"), messageCaptor.capture());
+    assertThat(messageCaptor.getValue())
+            .contains("SH-5002")
+            .contains("$108.00");
 }
 ```
 
-`@Captor` is the field-injection form, paired with `MockitoExtension` the
-same way `@Mock` is; `ArgumentCaptor.forClass(Shipment.class)` is the
-inline equivalent for a single test method. Either way, `capture()` goes
-inside the `verify(...)` call as the stand-in for the argument, and
-`getValue()` (or `getAllValues()` when a method is called more than once)
-retrieves what was passed, after the fact, for an assertion a
-matcher alone could not make.
-
 ## Strict stubbing and `lenient()`
 
-`MockitoExtension` runs with strict stubbing by default: a stub configured
-anywhere in a test class that no test method ever triggers fails that test
-with an `UnnecessaryStubbingException`, not a silent pass. This catches a
-real problem, a stub left behind after the code path that used it was
-refactored away, but it also surfaces a false positive whenever a shared
-`@BeforeEach` stub is only reached by some of a class's test methods.
+`MockitoExtension` uses strict stubs: a test that leaves one of its stubs unused fails with `UnnecessaryStubbingException`. That catches a stub left behind after the code that used it was removed. It also fails a test for the wrong reason when a shared `@BeforeEach` stub is reached by only some tests. The booking service checks ledger capacity only after validation passes, so the rejection tests never call the stub:
 
 ```java
 @BeforeEach
 void setUp() {
-    lenient().when(rateLookup.quote(any())).thenReturn(new Money(new BigDecimal("10.00")));
-    workflow = new DispatchWorkflow(rateLookup, shipmentRepository, carrierGateway);
+    // lenient(): the capacity check this stubs is reached by every
+    // accepted booking below, but never by a booking that fails
+    // ShipmentValidator's checks first. Mockito's strict stubbing would
+    // otherwise fail the validation-rejection tests with an
+    // UnnecessaryStubbingException for a stub they never call.
+    lenient().when(ledger.capacityRemaining()).thenReturn(10);
+    service = new ShipmentBookingService(validator, costCalculator, ledger, idGenerator);
 }
 ```
 
-A test method that rejects a shipment before it ever reaches `rateLookup`
-never calls the stubbed method, which strict stubbing would otherwise flag
-as unused for that one method and fail for the wrong reason, an unused
-stub, rather than pass or fail on its own assertion. `lenient()` tells
-Mockito this particular stub is allowed to go unused in some tests. Reach
-for it exactly in that situation, a stub shared across a fixture that only
-some test methods exercise, never as a blanket way to silence the strict-
-stubbing check across an entire test class.
-
-## Mock vs. stub vs. fake: choosing the right double
-
-The vocabulary matters because each double fits a different condition, and
-reaching for the wrong one either weakens a test or makes it needlessly
-expensive to write.
-
-A mock is the right double when the test's assertion is about the call
-itself: did `notifyCarrier` get called, with which reason, how many times.
-A stub, which in Mockito is just a mock with `when`/`thenReturn` configured
-and no `verify` ever checked against it, is the right double when a
-collaborator only needs to hand back a canned answer so a test can reach
-the behavior it cares about, with no claim made about whether or
-how the stub itself was called. A fake, usually a small hand-written
-implementation like `InMemoryShipmentRepository`, is the right double when
-the test's assertion is about resulting state across more than one call,
-save a shipment, then find it by ID, then confirm its status changed, in a
-way that chaining `when(...).thenReturn(...)` calls on a mock would make
-into a brittle, call-order-dependent setup.
-
-The dividing line is usually this: if the sentence after "this test
-checks that..." names a method and an argument, reach for a mock. If it
-names a value a collaborator should be holding afterward, reach for a fake
-or a real object. A stub sits in between, a mock used purely to get a test
-past a collaborator it does not care about, with no `verify` ever
-attached to it.
+Mark only the shared stub `lenient()`, never a whole class. Without it, the validation-failure and at-capacity tests both error with `UnnecessaryStubbingException`.
 
 ## For deeper coverage
 
-- The official [Mockito documentation](https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html): the complete mock, spy, matcher, `ArgumentCaptor`, and strict-stubbing API this appendix summarizes.
-- Gerard Meszaros, [*xUnit Test Patterns: Refactoring Test Code*](https://www.informit.com/store/xunit-test-patterns-refactoring-test-code-9780132800051) (Addison-Wesley): the mock, stub, spy, and fake taxonomy this appendix's closing section draws its vocabulary from.
-- The full reading list behind this book's opinions lives on the [bibliography page]({{ '/bibliography/' | relative_url }}); each citation there is a pointer to the full book, not a substitute for reading it.
+- The official [Mockito documentation](https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html): the complete mock, spy, matcher, `ArgumentCaptor`, and strict-stubbing API.
+- Gerard Meszaros, [*xUnit Test Patterns: Refactoring Test Code*](https://www.informit.com/store/xunit-test-patterns-refactoring-test-code-9780132800051) (Addison-Wesley): the mock, stub, spy, and fake taxonomy behind the double table.
+- The full reading list is on the [bibliography page]({{ '/bibliography/' | relative_url }}).

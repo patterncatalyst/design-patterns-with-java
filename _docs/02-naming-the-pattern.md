@@ -12,236 +12,79 @@ duration: "15 min"
 
 By the end of this chapter you can:
 
-- Explain what a pattern name compresses: a specific cluster of forces plus
-  a chosen structure, not a block of code to memorize.
-- Use a pattern name the way a team uses any shared vocabulary term, so a
-  reviewer can reason about the decision instead of re-reading the syntax.
-- Prompt an AI assistant with a pattern name precisely enough that the
-  request constrains the forces behind it, not just a familiar keyword.
-- Recognize when a name an assistant has attached to generated code does
-  not match the forces actually present in that code.
-- Explain why naming precision is a review skill, not just a writing habit.
+- Explain what a pattern name compresses: a cluster of forces plus a chosen structure, not a block of code.
+- Use a pattern name so a reviewer can reason about the decision instead of re-reading the syntax.
+- Prompt an AI assistant with a pattern name and the forces behind it, not just the keyword.
+- Spot a name on generated code that doesn't match the forces in that code.
+- Treat naming precision as a review skill.
 
 ## Why this matters
 
-A reviewer leaves a comment on a pull request: "this should be an Observer,
-not a field the billing service polls every few seconds." The comment is
-one sentence, and it lands because everyone reading the thread already
-knows what that sentence is standing in for: a component that needs to
-react to a change it does not own, a cost that polling pays over and over
-for no benefit, a design where the thing that changes should announce the
-change instead of being interrogated for it. Nobody re-derives that
-reasoning in the thread. The name does the work the sentence would
-otherwise have to spell out in full.
+A review comment reads: "this should be an Observer, not a field the billing service polls every few seconds." It lands in one sentence because everyone on the thread unpacks the same paragraph: a component must react to a change it doesn't own, polling pays for that over and over, and the thing that changes should announce it. Nobody re-derives the reasoning.
 
-That compression is the entire point of a pattern name, and it is worth
-examining on its own, separate from the forces-first habit the previous
-chapter built, because the same compression that saves a team real time can
-also cost that team real time the moment the name stops being accurate. A
-name that no longer matches the forces behind it does not just fail to
-help; it actively misleads, because everyone who hears it assumes the
-paragraph behind the word is still true. This chapter treats a pattern name
-as a tool with a failure mode, and shows how that failure mode plays out
-twice: once between people, and once between a person and an AI assistant
-reading or producing the same word.
+The same compression costs time once the name stops being accurate. Everyone who hears it assumes the paragraph behind it is still true. A name is a tool with a failure mode, and the failure plays out the same way between two people as between a person and an AI assistant.
 
 {% include excalidraw.html name="02-pattern-vocabulary" caption="Figure 2.1: A pattern name sits between three readers, an engineer, a teammate, and an AI assistant, each one supposed to read the same forces off the same word." %}
 
 ## A name is shorthand for a paragraph
 
-A force is a requirement that competes with
-another requirement in the same piece of code, and a pattern is the name a
-team gives to a recurring, specific way of resolving a cluster of those
-forces. Naming the pattern is the step where that definition becomes
-useful in conversation, not just in code. Say "Strategy" to an engineer who
-already carries the vocabulary this book builds and an entire paragraph
-arrives intact: something in this code varies, the variation is selected
-independently of the caller, and more than one way of varying it needs to
-coexist without the caller changing when a new one is added. Say "an
-interface with three implementations and a factory" instead, and you have
-described a shape without saying why the shape exists.
+Say "Strategy" and a paragraph arrives: something varies, the variant is chosen independently of the caller, and several variants coexist without the caller changing when one is added. Say "an interface with three implementations and a factory" and you've described a shape without saying why it exists.
 
-That difference is why a pattern name survives being spoken in a stand-up
-or typed into a one-line review comment, while a description of the code's
-structure does not. The shape is visible in the diff already; a reviewer
-can see the interface and its implementations without being told anything.
-What the diff cannot show on its own is whether the forces that justify
-that shape are present, today, in this code, for this team. The
-name is supposed to carry that judgment alongside the shape, which is why
-"this is a Strategy" is a defensible design claim when the forces back it
-up, and empty decoration borrowed from a catalogue when they do not.
+The diff already shows the shape. What it can't show is whether the forces that justify the shape are present, today, in this code. The name carries that judgment. "This is a Strategy" is a design claim when the forces back it and decoration when they don't.
 
-The test for whether a name is still doing real work is simple to state:
-can it be unpacked back into the forces it names, right now, for this
-code, without reaching for a textbook definition from memory. If a
-teammate asks "why is this a Strategy and not a `switch` expression," and
-the answer is a sentence about which requirements compete and which one
-wins, the name is still attached to the thing it names. If the answer is
-"that is just what you reach for when a value needs to vary," the name has
-come loose from its forces, and the recognize-first habit this book trains
-has not been applied.
+The check: can you unpack the name into the forces it names, for this code, without a textbook definition?
 
-## Reasoning at the level the decision lives
+| Teammate asks | Answer | The name is |
+| --- | --- | --- |
+| "Why a Strategy and not a `switch` expression?" | "Separate teams own the regional carriers and each changes on its own schedule." | attached to its forces |
+| same | "That's what you use when a value varies." | loose |
 
-A team that shares pattern vocabulary gets something a team without it
-does not: the ability to hold a design conversation at the altitude where
-the decision lives, instead of at the altitude of individual
-lines. Consider a pull request that introduces a connection pool for a
-billing service's datastore. A reviewer without shared vocabulary reads
-the diff line by line, confirms the lock is acquired correctly, confirms
-the connection is returned on every exit path, confirms the tests pass,
-and approves. A reviewer who shares the vocabulary this book builds asks a
-different, prior question first: does this service need the
-correctness property a pool exists to provide, that no two callers ever
-hold the same live connection at once, or is a single shared connection
-guarded by a lock sufficient for the traffic this service sees today. That
-question is only askable once "connection pool" is a name both people hold
-in their heads as a claim about forces, not merely a block of code waiting
-for a syntax check.
+## Reasoning where the decision lives
 
-This is where naming the pattern pays off in review, not only in design.
-A pull request description that reads "implements Observer for cache
-invalidation" invites one kind of review, line by line, correctness-only.
-One that reads "the cache now needs to invalidate itself the instant the
-underlying record changes, without the reader polling for it; Observer
-over a scheduled refresh because staleness has to be measured in
-milliseconds, not in a polling interval" invites a sharper kind, because
-the author did the forces-first reasoning before reaching for the name,
-and the reviewer can check that reasoning directly instead of having to
-reconstruct it.
+Shared vocabulary lets a review start at the decision instead of at the lines. Take a pull request that adds a connection pool to a billing service's datastore. Without the vocabulary, a reviewer checks that the lock is taken, the connection is returned on every exit path and the build passes. With it, the reviewer asks first whether the service needs what a pool guarantees, that no two callers hold the same live connection, or whether one shared connection behind a lock covers today's traffic.
 
-The same shift changes what a design discussion can accomplish in an
-hour. A meeting that spends its time re-deriving what a Factory is, from
-first principles, every time the word comes up, has less time left for the
-decision in front of it: does this construction logic have the
-forces a Factory addresses, variation in which concrete type gets built,
-construction involved enough that inlining it at every call site would
-hurt, or is `new PremiumAccount(...)` already the right answer and a
-Factory would be a layer wrapped around nothing. Shared vocabulary does
-not make that decision for the team. It clears the table so the team can
-make it without first re-litigating what the words mean.
+The pull request description sets the kind of review it gets:
 
-## The same word, read by a teammate and by an AI assistant
+| Description | Review it invites |
+| --- | --- |
+| "Implements Observer for cache invalidation." | Line by line, correctness only. |
+| "The cache must invalidate the instant the record changes, without readers polling. Observer over a scheduled refresh, because staleness must be milliseconds, not a polling interval." | A check of the stated forces and the rejected alternative. |
 
-Every claim above about a teammate reading a pattern name applies, almost
-unchanged, to an AI assistant reading one, and that parallel is worth
-sitting with rather than rushing past. When you prompt an assistant with
-"add an Observer so the billing dashboard updates the instant an invoice
-status changes, without polling," you are not handing it a code shape to
-produce. You are handing it the forces: something changes, a dependent
-needs to react to the change without being asked whether it happened, and
-polling is specifically the cost this design has to avoid. An assistant
-that receives the forces, not just the keyword, can make the same
-idiomatic choice a human engineer would: a listener interface registered
-on the subject here, a `java.util.function.Consumer` passed to a
-registration method there, because the forces, not the word alone,
-determine which idiomatic Java expression actually fits the situation.
+Design meetings work the same way. A meeting that re-derives Factory each time the word comes up has less time for the question in front of it: does this construction vary in which concrete type gets built, or is involved enough that inlining it would hurt? Or is `new PremiumAccount(...)` already the answer, and a Factory a layer around nothing? Shared vocabulary doesn't make that call. It clears the table for it.
 
-The reverse prompt is where the compression starts to leak. "Make this
-reactive, add a pattern" hands the assistant a word-shaped hole with no
-forces inside it, and a model will reliably fill that hole with whichever
-pattern shape is statistically most familiar for code that resembles the
-surrounding context, whether or not the forces in your actual code call
-for it. This is not a flaw unique to AI tooling; it is the identical
-failure mode of reaching for a pattern before its forces are present, the engineer who reaches
-for a pattern's shape the moment it comes to mind, now running at a speed
-that can produce a full implementation in the time it used to take to
-describe the requirement. The fix is identical in both cases: supply the
-forces before the name enters the conversation, whether the name is about
-to come out of your own head or out of a model's.
+## The same word, read by an AI assistant
 
-This matters doubly for review, because an AI assistant's output is still
-code someone has to be accountable for, and a precise pattern name is the
-fastest tool available for holding that code to the same standard a
-human co-author's code gets held to. A generated pull request that claims
-"implements Observer for cache invalidation" deserves exactly the two
-questions a human-authored one does: what forces does this solve, and was
-a plainer alternative considered and rejected for a stated reason. The
-assistant will not ask those questions of itself unless the forces were in
-the prompt it received. That means naming a pattern precisely, alongside
-the forces that justify it, is now a primary review tool for a machine
-collaborator's output, not an optional afterthought layered on top of
-accepting the diff.
+Everything above holds when the reader is an AI assistant. "Add an Observer so the billing dashboard updates the instant an invoice status changes, without polling" hands over forces, not a shape: something changes, a dependent must react without asking, and polling is the cost to avoid. With those forces the choice between a listener interface registered on the subject and a `java.util.function.Consumer` passed to a registration method can be made on the merits.
 
-> **AI sidebar.** Treat a pattern name attached to generated code the same
-> way you would treat one attached to a teammate's code: as a claim to
-> verify, not a label to trust. Ask the assistant to state the forces
-> alongside the name, for example "which requirement in this code actually
-> varies, and why does polling not satisfy it," before accepting the shape
-> it produced. A model that reaches for Observer because the request said
-> "reactive," with no actual change-notification requirement underneath
-> it, will usually answer that question with a restatement of the pattern's
-> textbook definition rather than a fact about your code, which is the
-> signal that the name arrived before the forces did. The same scrutiny
-> runs in reverse: when you are the one prompting, naming the pattern
-> explicitly in the request, "a Strategy, because the discount rule is
-> owned by a separate pricing team and changes independently of checkout,"
-> gives the model the forces it needs to pick the right idiomatic Java
-> expression instead of guessing from the keyword alone.
+"Make this reactive, add a pattern" hands over a word-shaped hole with no forces in it. That's the same failure as an engineer reaching for a shape the moment it comes to mind, now producing a full implementation in the time it took to type the request. The fix is the same for both: state the forces before the name.
+
+Generated code is still code someone answers for. A generated pull request that claims "implements Observer for cache invalidation" gets the same two questions as a human one: which forces does it resolve, and which plainer alternative was rejected, and why.
+
+> **🤖 Explore with your agent**
+>
+> "The billing dashboard must show an invoice's new status the instant it changes, without polling. The invoice service owns the status; the dashboard only reacts. Add change notification in Java: compare a listener interface registered on the invoice service with a `java.util.function.Consumer` passed to a registration method, pick one, and say which force decided it. Then name the plainer alternative you rejected and why."
+>
+> Check: the reply names a fact about the invoice service, not the textbook definition of Observer.
 
 ## A wrong name costs more than no name
 
-A missing name is an inconvenience; a wrong one is a liability, because a
-wrong name sends every reader who trusts it toward the wrong set of
-forces. Call a plain validation method a "Visitor" because it happens to
-walk a tree of objects, and a teammate who later needs to extend that
-validation will go looking for the double-dispatch machinery the Visitor
-name promises, machinery that was never actually built, because the
-original code was a loop with a type check, not a Visitor at all. The
-teammate loses time not because the code was bad, but because the name
-told them to expect a different shape than the one actually sitting in
-the file.
+A missing name is an inconvenience. A wrong one sends every reader who trusts it to the wrong forces.
 
-The same liability compounds with an AI assistant in the loop, because
-the assistant treats a misnamed comment or docstring as ground truth about
-the surrounding code's design, the same way it treats a prompt. A method
-documented as "implements the Builder pattern" that is actually a
-four-argument constructor with named parameters will lead an assistant
-asked to "add a new optional field to the Builder" toward inventing a full
-builder class where a fifth constructor parameter, or a small parameter
-object, would have been the smaller, correct change. The fix in both
-cases, for a human reader and for a model, is the same discipline of recognizing
-the forces first: a name is accurate only if it can be unpacked back into the
-forces actually present, and a name that fails that test should be
-corrected or removed rather than left to mislead the next reader, human or
-otherwise.
+- **A loop called Visitor.** A validation method that walks a tree with a type check, documented as a Visitor, sends the next maintainer looking for double-dispatch machinery that was never built.
+- **A constructor called Builder.** A four-argument constructor documented as "implements the Builder pattern" leads anyone asked to "add an optional field to the Builder", person or model, toward a full builder class, when a fifth parameter or a small parameter object is the smaller change.
+- **A vague name.** "Uses a design pattern for flexibility" names nothing. It passes review without making a claim anyone can check, and it gives a prompt nothing to constrain the answer.
 
-This is also why a vague name is its own failure mode, distinct from a
-wrong one. "This uses a design pattern for flexibility" names nothing at
-all. It passes a code review comment without making a verifiable claim,
-and it gives an assistant prompted with the same vagueness nothing to
-constrain its answer with. A name that cannot be stated specifically,
-Strategy, Observer, Adapter, and backed by the one or two forces that
-justify it, has not actually been chosen yet. Precision here is not
-pedantry. It is the difference between a sentence a reviewer can check and
-a sentence that only sounds like one.
+An assistant reads a misnamed comment or Javadoc as ground truth about the design, just as it reads a prompt. A name is accurate only if it unpacks into the forces present. Correct it or remove it.
 
-## Naming as the hinge of the method
+## Naming is the hinge of the method
 
-The arc this book trains, recognize the forces, name a candidate pattern
-and a candidate non-pattern, choose the idiomatic Java expression, test
-the behavior, and know when not to use it, has naming sitting at its
-center for a reason. Recognizing forces without ever naming them stays
-private; the reasoning lives in one engineer's head and has to be
-re-derived by everyone else who touches the code later. Naming a pattern
-without first recognizing the forces skips straight to decoration, the
-exact failure of applying a pattern with no force that calls for it. Naming is the hinge
-between the two: it is the step where private reasoning about trade-offs
-becomes a public, checkable word that a teammate can challenge, a future
-reader can trust, and an AI assistant can be prompted with and reviewed
-against.
+The arc runs: recognize the forces, name a candidate pattern and a candidate non-pattern, choose the idiomatic Java expression, test the behavior, and know when not to use it. Naming sits in the middle:
 
-That is also why this book spends a full catalogue entry on getting a
-name specifically right, chapter by chapter, instead of treating the
-Gang of Four's list as a glossary to skim once. A name used loosely drifts
-from its forces a little more each time it is applied without the
-justification behind it, until "Strategy" means nothing more precise than
-"this has an interface," and the compression the name was supposed to
-provide is gone for the whole team, not just for one careless use of it.
-Every pattern chapter ahead names its pattern against a specific,
-real-domain example precisely so that the name stays attached to the
-forces that earned it, chapter after chapter, rather than drifting into a
-generic label for "code that looks object-oriented."
+- forces recognized but never named stay in one engineer's head;
+- a name without recognized forces is decoration;
+- a named decision is a word a teammate can challenge, a later reader can trust and an assistant can be prompted with and reviewed against.
+
+A name used loosely drifts a little further from its forces each time, until "Strategy" means "has an interface" and the compression is gone for the whole team. Each pattern chapter ties its name to a shipping-domain example so the name stays attached to the forces that earned it.
 
 ## For deeper coverage
 

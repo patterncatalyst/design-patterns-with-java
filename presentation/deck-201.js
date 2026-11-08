@@ -1,4 +1,4 @@
-// deck-201.js -- "Design Patterns with Java" / 201: Idiomatic Java 25 Implementations
+// deck-201.js: "Design Patterns with Java" / 201: Idiomatic Java 25 Implementations
 // Red Hat-branded 16:9 companion deck. Build: node deck-201.js (from this dir).
 
 "use strict";
@@ -14,7 +14,7 @@ const OUT = "./design-patterns-with-java-201-idiomatic-java.pptx";
 const REV = "r01.0";
 
 const pres = newDeck();
-pres.title = "Design Patterns with Java -- 201: Idiomatic Java 25 Implementations";
+pres.title = "Design Patterns with Java 201: Idiomatic Java 25 Implementations";
 let pageNum = 0;
 
 function S() {
@@ -474,7 +474,7 @@ divider("01", "Idiomatic Java 25 expressions",
     "that has to be remembered, a sixth accessor that has to be kept in sync by hand, a default branch " +
     "that silently absorbs an unhandled case, a null check a caller forgets on the one input path that " +
     "exercises it. The feature map at the end of this deck extends this same table with the resource, " +
-    "concurrency, and dispatch idioms the rest of this deck still has to cover.");
+    "concurrency, and dispatch idioms the later sections cover.");
 }
 
 // ============================================================================
@@ -503,7 +503,7 @@ divider("02", "Patterns, expressed in Java",
     "Singleton and dependency injection: exactly one instance is a separate question from how a caller reaches it, and only one of the two answers stays substitutable in a test.",
   ], { fontSize: 16 });
   addNotes(s,
-    "This slide is the map for the rest of the section. Every pattern here is the one the audience " +
+    "This slide maps the section. Every pattern here is the one the audience " +
     "already knows from the Gang of Four catalogue; what is new is which concrete Java 25 construct " +
     "resolves each force in this codebase. Keep returning to one discipline across every pattern in this " +
     "section: name the plain alternative, a direct constructor call, a bare field, a single method, next " +
@@ -712,7 +712,7 @@ divider("02", "Patterns, expressed in Java",
   addNotes(s,
     "Every chained setter returns this, which is what lets a caller supply fields in whatever order is " +
     "convenient rather than a fixed constructor parameter list, and nothing is validated as the chain " +
-    "runs. The discipline worth repeating: a common reflex validates inside every setter instead of once " +
+    "runs. A common reflex validates inside every setter instead of once " +
     "at build(), which reintroduces the fixed-ordering problem Builder exists to remove, just spread " +
     "across several methods instead of one. Checking every required field and the one cross-field " +
     "invariant, an international destination needs a customs declaration, in a single method run exactly " +
@@ -1203,7 +1203,7 @@ divider("03", "In the wild",
 divider("Appendix", "Reference material",
   "The build toolchain and a one-page classic-idiom-to-Java-25 feature map. Keep this open in another window.",
   "This appendix is reference material, not a narrative arc; it is meant to stay open in a second " +
-  "window while working through the rest of the deck's examples, not to be read front to back. The " +
+  "window while working through the examples, not to be read front to back. The " +
   "first slide covers the local build-and-test loop every example in the source book follows; the " +
   "second is a single-page map of every classic idiom this deck named, for a quick lookup when a " +
   "reviewer asks which Java 25 feature a given refinement belongs to.");
@@ -1220,7 +1220,7 @@ divider("Appendix", "Reference material",
     "anywhere in the build or test loop, and no example ever asks a reader to run one; CI installs the " +
     "identical local toolchain directly on the runner. Every example is standalone-buildable from its own " +
     "directory in addition to being picked up by the repository's aggregator, so a reader can run " +
-    "mvn test from inside any single example without touching the rest of the book's code.");
+    "mvn test from inside any single example without touching any other example.");
 }
 {
   const s = S();
@@ -1238,7 +1238,7 @@ divider("Appendix", "Reference material",
   addNotes(s,
     "Use this as the lookup slide, not a teaching slide: every row names the force on the left, the " +
     "hand-written idiom that used to answer it in the middle, and the Java 25 feature that answers it now " +
-    "on the right. The pattern worth repeating one last time is visible across every row: the idiom in the " +
+    "on the right. The same pattern holds in every row: the idiom in the " +
     "middle column still compiles and still ships correct behavior on its own, and the column on the right " +
     "never changes what the force needs, it only removes ceremony a reviewer used to check by hand, a " +
     "volatile field, a hand-written equals, a default branch that silently absorbs an unhandled case, a " +
