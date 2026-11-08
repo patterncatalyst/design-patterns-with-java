@@ -12,67 +12,26 @@ duration: "25 min"
 
 By the end of this chapter you can:
 
-- Name the force that makes a dispatch table or map the right-sized tool: a
-  key selects one short handler, and a full Strategy or Command hierarchy
-  would be ceremony with nothing underneath it.
-- Build an `EnumMap<K, handler>` from an exhaustive switch expression over a
-  closed enum, and explain what guarantee the switch's missing `default`
-  branch gives you that a hand-built array or if-chain does not.
-- Build a `Map<K, handler>` dispatch table for an open, runtime-extensible
-  key set, register a new handler into it after construction, and route an
-  unrecognized key to a defined fallback instead of throwing.
-- Compare constant-specific enum method bodies against an externally built
-  `EnumMap`, and say which one keeps the enum as a plain key and which one
-  makes the enum carry its own behavior.
-- Recognize when a dispatch table has outgrown itself, when a handler needs
-  memory across calls, needs more context than the key itself carries, or
-  needs an undo path, and say what to reach for instead.
-- Name the one real cost an open dispatch map pays that a closed,
-  enum-keyed table does not.
+- Name the force that makes a dispatch table the right size: a key selects one short handler, and a Strategy or Command hierarchy would be ceremony.
+- Build an `EnumMap<K, handler>` from an exhaustive switch expression, and say what its missing `default` buys over an array or an if-chain.
+- Build a `Map<K, handler>` for an open key set, register a handler after construction, and route an unknown key to a fallback.
+- Compare constant-specific enum bodies with an external `EnumMap`, and say where each puts the behavior.
+- Recognize a table that has outgrown itself: a handler that needs memory, more context than the key, or an undo.
+- Name the cost an open map pays that an enum-keyed table doesn't.
 
 ## Why this matters
 
-A shipping ingestion service sits behind two different sources of truth
-about what just happened to a parcel. Its own domain code raises lifecycle
-events it fully controls: a shipment was created, picked up, moved in
-transit, put out for delivery, delivered, or flagged as an exception.
-Separately, third-party carriers deliver webhooks with their own wire
-codes, strings this codebase never declared and cannot enumerate in
-advance. Both sources answer the same question for a different key shape:
-given this event, which short block of code should run? A chain of
-`if (type == ShipmentEventType.CREATED) { ... } else if (...)` answers that
-question the least disciplined way, growing sideways with every event kind
-and asking a reviewer to read a function that does several unrelated
-things to confirm any one of them is correct.
+A shipping ingestion service hears about parcels from two sources. Its own domain code raises lifecycle events it controls: created, picked up, in transit, out for delivery, delivered, exception. Third-party carriers send webhooks with their own wire codes, strings the codebase never declared and can't enumerate. Both ask the same question with a different key: which short block of code runs for this event? An `if (type == ShipmentEventType.CREATED) { ... } else if (...)` chain answers it worst, growing with every event kind into one function that does several unrelated things.
 
-The Gang of Four's answer to "behavior that varies with a selector" is a
-full pattern: Strategy for an algorithm a caller picks and can swap at
-runtime, Command for a request turned into an object with its own execution
-and undo. Those patterns earn their cost when the behavior behind each
-branch is substantial, holds state across calls, or needs to be reversed.
-A handler that writes one line to a ledger and returns is a smaller
-problem, and building a named class with a constructor and an interface
-override for each one is over-engineering in the other direction: six
-classes, a factory to construct the right one, and a test suite that mostly
-asserts each class delegates to the same one-line body.
+The GoF answer to behavior that varies by selector is Strategy, for an algorithm a caller picks and can swap, or Command, for a request object with its own execution and undo. They earn their cost when each branch is substantial, holds state or must be reversed. A handler that writes one ledger line doesn't: six classes, a factory and tests that each check a one-line delegation is over-engineering.
 
-This chapter builds the lightweight answer to that smaller problem two
-idiomatic ways, then names exactly where each one stops being enough. An
-`EnumMap` built from an exhaustive switch expression resolves a known event
-type to its handler in one map lookup, with the compiler itself refusing to
-let a new event type go unhandled. A `Map<String, handler>` dispatch table
-does the same job for a set of keys this codebase does not fully control,
-letting a new carrier's wire code register a handler while the program is
-already running, no recompile required.
+Two lighter forms fit. An `EnumMap` built from an exhaustive switch expression resolves a known event type in one lookup, and the compiler refuses an unhandled type. A `Map<String, handler>` does the same for keys the codebase doesn't control, and accepts a new carrier code while the program runs.
 
 {% include excalidraw.html name="26-shortcut-dispatch" caption="Figure 26.1: a closed enum key and an open string key both resolve through a small dispatch table to a short handler; an unmatched open key still has a fallback route defined." %}
 
 ## The domain: routing a shipping event feed
 
-The example behind this chapter lives in `examples/26-shortcut-patterns`. A
-`ShipmentEvent` pairs a closed `ShipmentEventType` enum, six constants this
-codebase compiles against directly, with a tracking ID and a detail
-string:
+The code lives in `examples/26-shortcut-patterns`. A `ShipmentEvent` pairs a closed `ShipmentEventType` enum of six constants with a tracking ID and a detail string:
 
 ```java
 public enum ShipmentEventType {
@@ -94,10 +53,7 @@ public record ShipmentEvent(ShipmentEventType type, String trackingId, String de
 }
 ```
 
-`CarrierWebhookEvent` carries a `code`, a plain string standing in for
-whatever a third-party carrier's webhook actually sends on the wire, a
-value this codebase has no control over and cannot enumerate ahead of
-time:
+`CarrierWebhookEvent` carries a `code`, a plain string standing in for whatever a carrier's webhook sends:
 
 ```java
 public record CarrierWebhookEvent(String code, String trackingId, String detail) {
@@ -110,20 +66,21 @@ public record CarrierWebhookEvent(String code, String trackingId, String detail)
 }
 ```
 
-Both shapes resolve to short handler methods living in one place,
-`ShipmentHandlers`: `handleCreated`, `handlePickedUp`, and so on through
-`handleException`, each writing a single note into a shared `ShipmentLedger`.
-Keeping the handler bodies in one shared class, rather than duplicating them
-inside each dispatch mechanism, is deliberate: if the routing mechanism
-changes, the behavior behind each route should not, and the only way to
-make that true by construction rather than by care is to have both
-mechanisms call the same methods.
+Each handler writes one note into a shared `ShipmentLedger`. The enum's handlers are static methods on `ShipmentHandlers`, from `handleCreated` through `handleException`; the webhook router's built-in handlers are lambdas in its constructor.
 
-## Form one: the EnumMap, checked complete by the compiler
+## Pattern: Enum dispatch table
 
-`EnumDispatchRouter` resolves a `ShipmentEventType` to its handler through
-an `EnumMap`, built once in the constructor from `handlerFor`, a switch
-expression with one case per enum constant and no `default` branch:
+### The problem
+
+Six internal event types each need a one-line handler. An if-chain or a `switch` statement with a throwing `default` finds a missing type only at runtime, on the first event of that type. A Strategy class per type is six classes for six lines.
+
+### The solution
+
+**An enum dispatch table maps each constant of a closed enum to a short handler in an `EnumMap`, built from a switch expression the compiler checks for completeness.**
+
+### How Java models it
+
+`EnumDispatchRouter` builds the map once in its constructor from `handlerFor`, which has one case per constant and no `default`:
 
 ```java
 public final class EnumDispatchRouter {
@@ -156,37 +113,13 @@ public final class EnumDispatchRouter {
 }
 ```
 
-`route()` itself costs one map lookup and one call through a method
-reference, no branching once the key is in hand. `EnumMap` stores its
-entries in an array ordered by the enum's own declaration, so that lookup
-is as close to array-indexed as a `Map` interface gets, with none of
-`HashMap`'s hashing overhead. That is the case for reaching for `EnumMap`
-specifically over a plain `HashMap<ShipmentEventType, handler>`: the key
-type is already a small, ordered, closed set, and `EnumMap` is built for
-exactly that shape.
+`route()` is one map lookup and one call. `EnumMap` stores entries in an array ordered by declaration, so the lookup is close to array indexing, without `HashMap`'s hashing. That's why it beats a `HashMap<ShipmentEventType, handler>` for a small, closed, ordered key type.
 
-The real payoff is in how `handlers` gets built. `handlerFor`'s switch
-expression has no `default` branch, which means the compiler itself checks
-that every declared `ShipmentEventType` constant has a case. Add a seventh
-constant, `RETURNED_TO_SENDER`, to the enum without adding a matching case
-to this switch, and the build fails at the switch expression, naming the
-exact problem, before any shipment reaches the missing case in production.
-That is a meaningfully stronger guarantee than a `switch` statement with a
-`default` branch that throws `IllegalStateException`, or a hand-built array
-indexed by `ordinal()`, both of which only discover a missing case at
-runtime, on whichever event happens to exercise it first. The enum's
-constants and the switch's cases are two separate pieces of source text
-that have to agree, and only one of those two shapes, the `default`-free
-switch expression, makes the compiler responsible for keeping them in sync
-rather than a reviewer's memory.
+The guarantee comes from `handlerFor`. Add a seventh constant, `RETURNED_TO_SENDER`, without a case and the build fails with `the switch expression does not cover all possible input values`. A `switch` statement with a throwing `default`, or an array indexed by `ordinal()`, finds the gap only at runtime. The enum's constants and the switch's cases are two pieces of source that must agree, and the `default`-free switch expression makes the compiler keep them in step.
 
-### Two modern idioms: constant-specific bodies or a built dispatch map
+### Constant-specific bodies or a built dispatch map
 
-A Java 25 codebase has a second idiomatic way to get constant-specific
-behavior out of an enum: let each constant override an abstract method with
-its own body, the same shape `Carrier` used for shipping-rate Strategy
-implementations. Both idioms are current Java, and the choice between them
-is a real design decision, not a style preference:
+An enum can also carry the behavior itself, each constant overriding an abstract method, the shape a rate-per-carrier Strategy enum uses. Both are current Java:
 
 {% include codetabs.html langs="Constant-specific body|EnumMap + switch" %}
 
@@ -224,29 +157,28 @@ private static BiConsumer<ShipmentEvent, ShipmentLedger> handlerFor(ShipmentEven
 }
 ```
 
-Both forms get the same compile-time completeness guarantee: a constant
-with no method body fails to compile under the first form exactly as a
-switch expression missing a case fails to compile under the second. The
-difference is where the behavior lives. Constant-specific bodies couple the
-enum to its handling logic directly; `ShipmentEventType` becomes something
-that both identifies an event and knows what to do about it, which reads
-well when the enum exists for exactly one purpose. The `EnumMap`-and-switch
-form keeps `ShipmentEventType` a plain value, usable anywhere an event type
-needs to be named, serialized, or compared, with the handler logic sitting
-in `ShipmentHandlers` where a second dispatch path, a test, or an unrelated
-reporting job can call the same methods directly without going through the
-enum at all. `examples/26-shortcut-patterns` uses the second form because
-`ShipmentHandlers`'s methods are also called directly from the test suite
-and the demo independent of either router; reach for constant-specific
-bodies instead when the enum's only job in the codebase is to carry that
-one behavior.
+Both get the same compile-time check: a constant with no body fails to compile just as a missing case does. They differ in where the behavior lives:
 
-## Form two: the open dispatch map, registered at runtime
+| Form | The enum is | Fits when |
+| --- | --- | --- |
+| Constant-specific body | An identifier that also knows what to do | The enum exists only to carry that one behavior |
+| `EnumMap` + switch | A plain value to name, serialize or compare | The handlers in `ShipmentHandlers` should be callable without going through the enum, by a second dispatch path or a reporting job |
 
-A carrier's `code` is not one of six values this codebase enumerated ahead
-of time. It is a string, and a new carrier integrated next quarter sends
-codes nobody wrote a case for. `CarrierWebhookRouter` answers that with a
-plain `Map<String, handler>` instead of an `EnumMap`:
+`examples/26-shortcut-patterns` uses the second form, keeping `ShipmentEventType` a plain key.
+
+## Pattern: Open dispatch map
+
+### The problem
+
+A carrier's `code` isn't one of six known values. A carrier integrated next quarter sends codes nobody wrote a case for, and onboarding it shouldn't need a recompile. An unknown code must not crash ingestion or vanish.
+
+### The solution
+
+**An open dispatch map keys short handlers by a string, accepts new entries at runtime, and routes any key it doesn't hold to a defined fallback.**
+
+### How Java models it
+
+`CarrierWebhookRouter` uses a plain `Map<String, handler>`:
 
 ```java
 public final class CarrierWebhookRouter {
@@ -277,147 +209,54 @@ public final class CarrierWebhookRouter {
 }
 ```
 
-`register()` is the whole point of choosing a map over an enum-keyed
-table: a caller reaches it after construction, at any point while the
-program is already running, and the dispatch table's behavior changes with
-no recompile and no change to `CarrierWebhookRouter`'s own source. The
-example's demo registers a handler for `"customs_hold"`, a code none of the
-four built-in entries above know about, after `CarrierWebhookRouter` is
-already constructed, and the very next `route()` call dispatches to it
-correctly.
+`register()` is the reason to choose a map: a caller adds a code after construction and the next `route()` dispatches to it, with no change to `CarrierWebhookRouter`. A handler registered for `"customs_hold"`, which none of the four built-in entries know, routes on the very next call.
 
-`route()` leans on `getOrDefault()` rather than a manual `containsKey()`
-check followed by a `get()`, which matters for more than brevity: a
-two-step check-then-fetch invites a bug where the check and the fetch drift
-apart as the method grows, while `getOrDefault()` makes the fallback part of
-the same expression that does the lookup. `handleUnrecognizedCode` records
-the raw code for whoever reviews the ledger later, rather than throwing or
-silently dropping the event. That fallback matters more here than it would
-for the closed enum form. A `ShipmentEventType` value can only ever be one
-of six compiler-checked constants; a `String` key has no such guarantee at
-all, so every open dispatch table needs a defined answer for "I have never
-seen this key," not as an edge case patched on later but as a first-class
-branch of `route()` from the start.
+### The fallback is a first-class branch
+
+`route()` uses `getOrDefault()` rather than `containsKey()` then `get()`, so the lookup and the fallback are one expression and can't drift apart as the method grows. `handleUnrecognizedCode` records the raw code in the ledger instead of throwing or dropping the event. A `ShipmentEventType` can only be one of six checked constants; a `String` has no such limit, so every open table needs a defined answer for a key it has never seen, from the start.
 
 ## When a table outgrows itself
 
-Both forms in this chapter answer exactly one question: which short
-function runs for this key. The moment the answer needs more than a
-function call, a table is the wrong tool, and the full pattern it was
-standing in for is the right one.
+Both forms answer one question: which short function runs for this key. When the answer needs more, go back to the full pattern:
 
-Strategy becomes the right tool again the moment a handler needs to hold
-state across calls or needs to be swapped by a caller at runtime rather
-than selected by an incoming key. This chapter's handlers are stateless
-methods chosen once per call by a key that arrives with the event. If
-handling a `DELIVERED` webhook needed to remember how many times a given
-tracking ID had already been marked delivered, so a second delivery
-notice for the same shipment is treated as a carrier error rather than a
-routine update, that memory belongs in an object a caller owns and
-configures, not in a static table entry.
+| Signal | Example | Reach for |
+| --- | --- | --- |
+| A handler needs memory across calls, or a caller swaps it at runtime | A second `DELIVERED` notice for one tracking ID should count as a carrier error | Strategy: an object the caller owns and configures |
+| An action must be undone, queued apart from its event, or replayed | An operator flags an exception in error and rolls the ledger entry back | Command: an object with apply and undo |
+| The key encodes more than identity | A wire code that packs in a severity or retry count | A small parser or value type in front of the dispatch |
 
-Command becomes the right tool again when a dispatched action needs to be
-undone, queued independently of the event that triggered it, or replayed
-later. This chapter's handlers run once and return nothing a caller can
-later reverse. If recording an exception needed an undo path, because an
-operator sometimes flags an exception in error and needs to roll the
-ledger entry back, that need is an object with its own apply and undo, not
-a method reference sitting in a map.
-
-A third signal, specific to the open form, is a key space that starts
-encoding more than an identity. If a carrier's wire code began carrying a
-severity level or a retry count packed into the string itself, parsing
-that out of the key before dispatch is a sign the key has stopped being a
-simple lookup token and the routing decision needs a small parser or a
-dedicated value type in front of it, not a bigger map with more encoded
-string keys.
-
-> **AI sidebar.** Ask an LLM pairing partner to "add dispatch for shipment
-> events" and a common result reaches for a `Map<String, Runnable>` or
-> `Map<Enum, Consumer>` even when the key set is small, fixed, and known at
-> the call site, which is exactly the case an `EnumMap` built from an
-> exhaustive switch handles with a compile-time completeness guarantee a
-> generated `HashMap.put()` call list does not. The generated code also
-> tends to skip the fallback branch on the open form entirely, assuming
-> every webhook code the map will ever see was already written into the
-> constructor. Read a generated dispatch table the way this chapter trained:
-> ask whether the key set is open or closed before accepting the container
-> choice, and ask what happens, today, if a key arrives that nobody wrote a
-> row for. If nothing defined answers that question, the fix is a fallback
-> branch or an exhaustive switch, not a bigger map.
+> **🤖 Explore with your agent**
+>
+> "In `examples/26-shortcut-patterns`, add a `RETURNED_TO_SENDER` constant to `ShipmentEventType`, a `handleReturnedToSender` static method on `ShipmentHandlers` that records `returned-to-sender: ` plus the detail, and one `case` for it in `EnumDispatchRouter.handlerFor`. Keep `handlerFor` a switch expression with no `default`, keep the enum a plain key with no method bodies, and don't add a `HashMap` or an if-chain. Separately, register a `returned` webhook code with `CarrierWebhookRouter.register` from the caller, without editing the router's constructor, and leave `getOrDefault` and the fallback as they are."
+>
+> Check: `mvn -q -f examples/26-shortcut-patterns/pom.xml test -Dtest=EnumDispatchRouterTest,CarrierWebhookRouterTest`; removing the new `case` must break the build.
 
 ## When not to use it
 
-A dispatch table or map is worth the extra code the moment a chain of
-`if`/`else if` branches on the same key would otherwise grow past three or
-four cases, because at that size a table reads as data a reviewer scans in
-one pass, while an `if` chain reads as code traced branch by branch. Below
-that size, the `if` chain is not a problem to fix. Two or three short
-branches, each self-contained, cost a reader less than a map field, a
-constructor that seeds it, and a fallback method would. Introducing
-`CarrierWebhookRouter` for two webhook codes solves a problem of scale that
-has not arrived yet.
-
-The enum-keyed form specifically should not be reached for when the
-"handler" behind each key is not actually a short, stateless function but a
-disguised object: a value that needs a constructor argument, holds a
-collaborator, or needs to be mocked independently in a test. At that point
-the map is hiding a family of classes behind a lookup, and naming that
-family directly as a Strategy or Command is the clearer design.
-
-The open map's flexibility is a cost as well as a feature. It cannot tell a
-caller, at compile time, whether a code it is about to dispatch exists;
-every single call pays the branch for "what if this key was never
-registered," a branch the enum-keyed form only pays once, at whatever
-boundary parses an untrusted value into a `ShipmentEventType` in the first
-place. Reach for an open map specifically when the key set is actually
-open, a third party controls part of it, or a registration step at runtime
-is a real requirement, not merely because `Map` is a familiar, flexible
-container. And reach past both forms in this chapter, back to Strategy or
-Command, the moment a handler needs memory across calls, needs more
-context than the key itself provides, or needs an undo path; this
-chapter's tables answer "which function runs," not "what does an evolving,
-stateful collaborator do."
+- **Two or three branches.** A table pays off when an if-chain on one key would pass three or four cases, because then a table reads as data scanned in one pass. Below that, a map field, a seeding constructor and a fallback cost more than the chain. `CarrierWebhookRouter` for two codes solves a problem that hasn't arrived.
+- **A disguised object.** When a handler needs a constructor argument, holds a collaborator or needs mocking in isolation, the map hides a family of classes. Name it as a Strategy or Command.
+- **A closed key set in an open map.** The open map can't tell a caller at compile time whether a code exists, so every call pays the "never registered" branch. The enum form pays that once, where an untrusted value is parsed into a `ShipmentEventType`. Use the open map when a third party controls part of the key set or runtime registration is a requirement, not because `Map` is familiar.
 
 ## Build, run, observe
 
-Every command below runs with the local Maven and JDK 25 toolchain the
-prerequisites chapter installs; there is no container anywhere in this
-loop. From the repository root, the aggregator picks up
-`examples/26-shortcut-patterns` once it is registered there:
+From the repository root:
 
 ```sh
 mvn -f examples/pom.xml test
 ```
 
-This example is also standalone-buildable from its own directory:
+Or standalone:
 
 ```sh
 cd examples/26-shortcut-patterns
 mvn test
 ```
 
-Either path runs the same 20 JUnit 5 cases (AssertJ assertions), including
-a parameterized suite over every `ShipmentEventType` constant and every
-built-in webhook code, a case proving an unrecognized webhook code falls
-back instead of throwing, and a case proving `register()` makes a new code
-routable on the very next call. Observed locally on Fedora with Temurin
-25.0.2:
-
-```
-Tests run: 20, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-To see both forms route real events side by side rather than just reading
-an assertion that says they work, run the example's own demo script:
+All 20 tests pass, including every `ShipmentEventType` constant, every built-in webhook code, the fallback and a code registered after construction. The demo routes events through both forms:
 
 ```sh
 examples/26-shortcut-patterns/demo.sh
 ```
-
-It routes a short sequence of events through the `EnumMap` form, then the
-open webhook map, including a code registered after construction:
 
 ```
 == Form one: EnumMap built from an exhaustive switch ==
@@ -434,27 +273,23 @@ Webhook codes registered after onboarding: 5
   SH-2002: unrecognized webhook code, routed to fallback: unknown_event
 ```
 
-Notice the webhook code count climbing from 4 to 5 between the two "Form
-two" lines: `"customs_hold"` was never one of the four built-in entries,
-and the very next `route()` call after `register()` dispatches to it
-correctly, with no restart and no recompile.
+The count rises from 4 to 5 when `"customs_hold"` is registered, and the next `route()` reaches it with no restart. One experiment, in a scratch copy:
+
+- **Add an unhandled constant.** Add `RETURNED_TO_SENDER` to `ShipmentEventType`. Compilation fails in `EnumDispatchRouter` with `the switch expression does not cover all possible input values`.
 
 ## For deeper coverage
 
 - Erich Gamma, Richard Helm, Ralph Johnson, and John Vlissides, [*Design
   Patterns: Elements of Reusable Object-Oriented Software*](https://www.pearson.com/en-us/subject-catalog/p/design-patterns-elements-of-reusable-object-oriented-software/P200000009480)
-  (Addison-Wesley): the Strategy and Command entries this chapter's two
-  dispatch shortcuts stand in for at a smaller scale, and the source to
-  reach for the moment a handler needs more than a function call.
+  (Addison-Wesley): the Strategy and Command entries these dispatch
+  shortcuts stand in for at a smaller scale, and the source to reach for
+  once a handler needs more than a function call.
 - Joshua Bloch, [*Effective Java*](https://www.informit.com/store/effective-java-9780134685991),
   third edition (Addison-Wesley): Item 34 covers enum constants with
-  constant-specific method bodies as the alternative this chapter compares
-  directly against a separately built `EnumMap`.
+  constant-specific method bodies, the alternative compared here with a
+  separately built `EnumMap`.
 - The official [JUnit 5 documentation](https://junit.org/junit5/docs/current/user-guide/)
   and [AssertJ documentation](https://assertj.github.io/doc/): the testing
-  idiom behind `examples/26-shortcut-patterns`'s suite, which asserts that
-  every key, closed and open, routes to its own handler and that an
-  unregistered key falls back rather than throwing.
-- The full reading list behind this book's opinions lives on the
-  [bibliography page]({{ '/bibliography/' | relative_url }}); each citation
-  there is a pointer to the full book, not a substitute for reading it.
+  idiom behind `examples/26-shortcut-patterns`.
+- The full reading list lives on the
+  [bibliography page]({{ '/bibliography/' | relative_url }}).
